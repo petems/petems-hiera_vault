@@ -8,10 +8,7 @@ This is a back end function for Hiera 5 that allows lookup to be sourced from Ha
 
 ### Compatibility
 
-* The 3.x series of hiera-http is only compatible with Hiera 5, that ships with Puppet 4.9+
-* Users looking for older implementations for Hiera 1,2 and 3 should use hiera-http 2.x
-* hiera-http 3 ships within the [crayfishx/hiera_http](https://forge.puppet.com/crayfishx/hiera_http)
-* hiera-http 2 (legacy) ships as a Rubygem "hiera-http"
+* This moduel is only compatible with Hiera 5 (ships with Puppet 4.9+)
 
 ### Requirements
 
@@ -63,7 +60,8 @@ hierarchy:
 The following mandatory Hiera 5 options must be set for each level of the hierarchy.
 
 `name`: A human readable name for the lookup
-`lookup_key`: This option must be set to `hiera_http`
+
+`lookup_key`: This option must be set to `hiera_vault`
 
 
 The following are optional configuration parameters supported in the `options` hash of the Hiera 5 config
