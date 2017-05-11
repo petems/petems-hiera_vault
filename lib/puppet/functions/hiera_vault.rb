@@ -10,12 +10,12 @@ Puppet::Functions.create_function(:hiera_vault) do
   begin
     require 'json'
   rescue LoadError => e
-    raise Puppet::DataBind::LookupError, "Must install json gem to use hiera-vault"
+    raise Exception, "[hiera-vault] Must install json gem to use hiera-vault backend"
   end
   begin
     require 'vault'
   rescue LoadError => e
-    raise Puppet::DataBind::LookupError, "Must install vault gem to use hiera-vault"
+    raise Exception, "[hiera-vault] Must install vault gem to use hiera-vault backend"
   end
 
   dispatch :lookup_key do
@@ -27,11 +27,18 @@ Puppet::Functions.create_function(:hiera_vault) do
   def lookup_key(key, options, context)
 
     if confine_keys = options['confine_to_keys']
-      raise ArgumentError, 'confine_to_keys must be an array' unless confine_keys.is_a?(Array)
-      confine_keys.map! { |r| Regexp.new(r) }
+      raise ArgumentError, '[hiera-vault] confine_to_keys must be an array' unless confine_keys.is_a?(Array)
+
+      begin
+        confine_keys = confine_keys.map { |r| Regexp.new(r) }
+      rescue StandardError => e
+        raise Exception, "[hiera-vault] creating regexp failed with: #{e}"
+      end
+
       regex_key_match = Regexp.union(confine_keys)
+
       unless key[regex_key_match] == key
-        context.explain { "Skipping hiera_vault backend because key does not match confine_to_keys" }
+        context.explain { "[hiera-vault] Skipping hiera_vault backend because key does not match confine_to_keys" }
         context.not_found
       end
     end
@@ -44,19 +51,11 @@ Puppet::Functions.create_function(:hiera_vault) do
 
   def vault_get(key, options, context)
 
-    options['default_field_behavior'] ||= 'ignore'
-    options['default_field_parse']    ||= 'string'
-    options['mounts']                 ||= {}
-    options['mounts']['generic']      ||= ['/secret']
-
-    if not ['string','json'].include?(options['default_field_parse'])
-      Raise ArgumentError, "[hiera-vault] invalid value for default_field_parse: '#{options['default_field_behavior']}', should be one of 'string','json'"
+    if ! ['string','json',nil].include?(options['default_field_parse'])
+      raise Exception, "[hiera-vault] invalid value for default_field_parse: '#{options['default_field_behavior']}', should be one of 'string','json'"
     end
 
-    # :default_field_behavior:
-    #   'ignore' => ignore additional fields, if the field is not present return nil
-    #   'only'   => only return value of default_field when it is present and the only field, otherwise return hash as normal
-    if not ['ignore','only'].include?(options['default_field_behavior'])
+    if ! ['ignore','only',nil].include?(options['default_field_behavior'])
       raise Exception, "[hiera-vault] invalid value for default_field_behavior: '#{options['default_field_behavior']}', should be one of 'ignore','only'"
     end
 
@@ -73,20 +72,24 @@ Puppet::Functions.create_function(:hiera_vault) do
         config.ssl_ciphers = options['ssl_ciphers'] if config.respond_to? :ssl_ciphers
       end
 
-      fail if vault.sys.seal_status.sealed?
+      if vault.sys.seal_status.sealed?
+        raise Exception, "[hiera-vault] vault is sealed"
+      end
 
       context.explain { "[hiera-vault] Client configured to connect to #{vault.address}" }
-    rescue Exception => e
+    rescue StandardError => e
       vault = nil
       context.explain { "[hiera-vault] Skipping backend. Configuration error: #{e}" }
       context.not_found
     end
 
     answer = nil
-    found = false
 
-    # Only generic mounts supported so far                                                                                                   
-    options['mounts']['generic'].each do |mount|
+    generic = options['mounts']['generic'].dup
+    generic ||= [ '/secret' ]
+
+    # Only generic mounts supported so far
+    generic.each do |mount|
       path = context.interpolate(mount) + key
       context.explain { "[hiera-vault] Looking in path #{path}" }
 
@@ -101,10 +104,10 @@ Puppet::Functions.create_function(:hiera_vault) do
       next if secret.nil?
 
       context.explain { "[hiera-vault] Read secret: #{key}" }
-      if (options['default_field'] and options['default_field_behavior'] == 'ignore') or
-         (secret.data.has_key?(options['default_field'].to_sym) and secret.data.length == 1)
+      if (options['default_field'] && ['ignore', nil].include?(options['default_field_behavior'])) ||
+         (secret.data.has_key?(options['default_field'].to_sym) && secret.data.length == 1)
 
-        return nil if not secret.data.has_key?(options['default_field'].to_sym)
+        return nil if ! secret.data.has_key?(options['default_field'].to_sym)
 
         new_answer = secret.data[options['default_field'].to_sym]
 
