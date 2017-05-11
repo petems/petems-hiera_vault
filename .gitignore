@@ -1,0 +1,16 @@
+modules/
+
+# emacs turds
+*\~
+.*\~
+\#*
+.\#*
+
+# macOS Finder turds
+.DS_Store
+
+# AppleDouble resource forks
+._*
+
+# Prevent accidental private key commits
+.ssh
