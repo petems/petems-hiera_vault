@@ -10,12 +10,12 @@ Puppet::Functions.create_function(:hiera_vault) do
   begin
     require 'json'
   rescue LoadError => e
-    raise Exception, "[hiera-vault] Must install json gem to use hiera-vault backend"
+    raise Puppet::DataBind::LookupError, "[hiera-vault] Must install json gem to use hiera-vault backend"
   end
   begin
     require 'vault'
   rescue LoadError => e
-    raise Exception, "[hiera-vault] Must install vault gem to use hiera-vault backend"
+    raise Puppet::DataBind::LookupError, "[hiera-vault] Must install vault gem to use hiera-vault backend"
   end
 
   dispatch :lookup_key do
@@ -32,7 +32,7 @@ Puppet::Functions.create_function(:hiera_vault) do
       begin
         confine_keys = confine_keys.map { |r| Regexp.new(r) }
       rescue StandardError => e
-        raise Exception, "[hiera-vault] creating regexp failed with: #{e}"
+        raise Puppet::DataBind::LookupError, "[hiera-vault] creating regexp failed with: #{e}"
       end
 
       regex_key_match = Regexp.union(confine_keys)
@@ -52,11 +52,11 @@ Puppet::Functions.create_function(:hiera_vault) do
   def vault_get(key, options, context)
 
     if ! ['string','json',nil].include?(options['default_field_parse'])
-      raise Exception, "[hiera-vault] invalid value for default_field_parse: '#{options['default_field_behavior']}', should be one of 'string','json'"
+      raise ArgumentError, "[hiera-vault] invalid value for default_field_parse: '#{options['default_field_behavior']}', should be one of 'string','json'"
     end
 
     if ! ['ignore','only',nil].include?(options['default_field_behavior'])
-      raise Exception, "[hiera-vault] invalid value for default_field_behavior: '#{options['default_field_behavior']}', should be one of 'ignore','only'"
+      raise ArgumentError, "[hiera-vault] invalid value for default_field_behavior: '#{options['default_field_behavior']}', should be one of 'ignore','only'"
     end
 
     begin
@@ -73,14 +73,13 @@ Puppet::Functions.create_function(:hiera_vault) do
       end
 
       if vault.sys.seal_status.sealed?
-        raise Exception, "[hiera-vault] vault is sealed"
+        raise Puppet::DataBind::LookupError, "[hiera-vault] vault is sealed"
       end
 
       context.explain { "[hiera-vault] Client configured to connect to #{vault.address}" }
     rescue StandardError => e
       vault = nil
-      context.explain { "[hiera-vault] Skipping backend. Configuration error: #{e}" }
-      context.not_found
+      raise Puppet::DataBind::LookupError, "[hiera-vault] Skipping backend. Configuration error: #{e}"
     end
 
     answer = nil
