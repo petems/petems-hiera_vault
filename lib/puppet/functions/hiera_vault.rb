@@ -130,7 +130,7 @@ Puppet::Functions.create_function(:hiera_vault) do
         break
       end
     end
-
+    answer = context.not_found if answer.nil?
     return answer
   end
 end
