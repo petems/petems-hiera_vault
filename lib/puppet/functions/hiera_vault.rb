@@ -43,6 +43,14 @@ Puppet::Functions.create_function(:hiera_vault) do
       end
     end
 
+    if strip_from_keys = options['strip_from_keys']
+      raise ArgumentError, '[hiera-vault] strip_from_keys must be an array' unless strip_from_keys.is_a?(Array)
+
+      strip_from_keys.each do |prefix|
+        key = key.gsub(Regexp.new(prefix), '')
+      end
+    end
+
     result = vault_get(key, options, context)
 
     return result
