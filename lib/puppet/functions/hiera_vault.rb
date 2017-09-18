@@ -97,7 +97,7 @@ Puppet::Functions.create_function(:hiera_vault) do
 
     # Only generic mounts supported so far
     generic.each do |mount|
-      path = context.interpolate(mount) + key
+      path = context.interpolate(File.join(mount, key))
       context.explain { "[hiera-vault] Looking in path #{path}" }
 
       begin
