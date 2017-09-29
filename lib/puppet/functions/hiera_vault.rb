@@ -38,7 +38,7 @@ Puppet::Functions.create_function(:hiera_vault) do
       regex_key_match = Regexp.union(confine_keys)
 
       unless key[regex_key_match] == key
-        context.explain { "[hiera-vault] Skipping hiera_vault backend because key does not match confine_to_keys" }
+        context.explain { "[hiera-vault] Skipping hiera_vault backend because key '#{key}' does not match confine_to_keys" }
         context.not_found
       end
     end
