@@ -120,7 +120,7 @@ Puppet::Functions.create_function(:hiera_vault) do
 
         if options['default_field_parse'] == 'json'
           begin
-            new_answer = JSON.parse(new_answer)
+            new_answer = JSON.parse(new_answer, :quirks_mode => true)
           rescue JSON::ParserError => e
             context.explain { "[hiera-vault] Could not parse string as json: #{e}" }
           end
