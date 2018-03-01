@@ -51,6 +51,10 @@ Puppet::Functions.create_function(:hiera_vault) do
       end
     end
 
+    if ENV['VAULT_TOKEN'] == 'IGNORE-VAULT'
+      return context.not_found
+    end
+
     result = vault_get(key, options, context)
 
     return result
