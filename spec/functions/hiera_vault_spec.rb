@@ -43,10 +43,6 @@ describe FakeFunction do
 
   describe "#lookup_key" do
 
-    it 'should run' do
-      expect( function.lookup_key( 'test_key', vault_options, context ) ).to be_nil
-    end
-
     context 'supplied with invalid parameters' do
       it 'should die when default_field_parse is not in [ string, json ]' do
         expect { function.lookup_key( 'test_key', {'default_field_parse' => 'invalid'}, context ) }
@@ -81,7 +77,8 @@ describe FakeFunction do
           }
         end
         it 'without a token should return nil' do
-          expect( function.lookup_key( 'test_key', options, context ) ).to be_nil
+          expect { function.lookup_key( 'test_key', {'confine_to_keys' => [ '^vault.*$' ]}, context ) }
+            .to throw_symbol(:no_such_key)
         end
       end
     end
@@ -115,9 +112,11 @@ describe FakeFunction do
             .to include('value' => 'default')
       end
 
-      it 'should return nil on non-existant key' do
-        expect( function.lookup_key( 'doesnt_exist', vault_options, context ) ).to be_nil
+      it 'should return error on non-existant key' do
+        expect { function.lookup_key( 'doenst_exist', vault_options, context ) }
+            .to throw_symbol(:no_such_key)
       end
+
       it 'should return the default_field value if present' do
         expect( function.lookup_key('test_key', { 'default_field' => 'value' }.merge(vault_options), context) )
             .to eq('default')

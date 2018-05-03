@@ -100,7 +100,11 @@ Puppet::Functions.create_function(:hiera_vault) do
         context.explain { "[hiera-vault] Could not read secret #{path}: #{e.errors.join("\n").rstrip}" }
       end
 
-      next if secret.nil?
+      if secret.nil?
+        context.explain { "[hiera-vault] Could not find value for key #{path}" }
+        context.explain { "[hiera-vault] lookup will throw an error unless default_value is set on the lookup" }
+        context.not_found
+      end
 
       context.explain { "[hiera-vault] Read secret: #{key}" }
       if (options['default_field'] and ( ['ignore', nil].include?(options['default_field_behavior']) ||
