@@ -72,6 +72,16 @@ Puppet::Functions.create_function(:hiera_vault) do
         config.ssl_ciphers = options['ssl_ciphers'] if config.respond_to? :ssl_ciphers
       end
 
+      # Authenticate using approle if 'token' is not provided but 'role-id' and 'secret-id' are.
+      if options['token'].nil?
+        if !options['role-id'].nil? && !options['secret-id'].nil?
+          vault.auth.approle(
+              options['role-id'],
+              options['secret-id']
+          )
+        end
+      end
+
       if vault.sys.seal_status.sealed?
         raise Puppet::DataBinding::LookupError, "[hiera-vault] vault is sealed"
       end
