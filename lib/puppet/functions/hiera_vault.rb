@@ -64,7 +64,11 @@ Puppet::Functions.create_function(:hiera_vault) do
 
       vault.configure do |config|
         config.address = options['address'] unless options['address'].nil?
-        config.token = options['token'] unless options['token'].nil?
+        if ENV['VAULT_TOKEN']
+          config.token = ENV['VAULT_TOKEN']
+        elsif options['token']
+          config.token = options['token']
+        end
         config.ssl_pem_file = options['ssl_pem_file'] unless options['ssl_pem_file'].nil?
         config.ssl_verify = options['ssl_verify'] unless options['ssl_verify'].nil?
         config.ssl_ca_cert = options['ssl_ca_cert'] if config.respond_to? :ssl_ca_cert
@@ -73,11 +77,25 @@ Puppet::Functions.create_function(:hiera_vault) do
       end
 
       # Authenticate using approle if 'token' is not provided but 'role-id' and 'secret-id' are.
+
+
       if options['token'].nil?
-        if !options['role-id'].nil? && !options['secret-id'].nil?
+        role_id = nil
+        secret_id = nil
+        if ENV['VAULT_ROLE_ID']
+          role_id = ENV['VAULT_ROLE_ID']
+        elsif options['role-id']
+          role_id = options['role-id']
+        end
+        if ENV['VAULT_SECRET_ID']
+          secret_id = ENV['VAULT_SECRET_ID']
+        elsif options['secret-id']
+          secret_id = options['secret-id']
+        end
+        if role_id && secret_id
           vault.auth.approle(
-              options['role-id'],
-              options['secret-id']
+            role_id,
+            secret_id
           )
         end
       end
