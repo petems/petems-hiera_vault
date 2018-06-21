@@ -71,7 +71,7 @@ Puppet::Functions.create_function(:hiera_vault) do
   def vault_get(key, options, context)
 
     if ! ['string','json',nil].include?(options['default_field_parse'])
-      raise ArgumentError, "[hiera-vault] invalid value for default_field_parse: '#{options['default_field_behavior']}', should be one of 'string','json'"
+      raise ArgumentError, "[hiera-vault] invalid value for default_field_parse: '#{options['default_field_parse']}', should be one of 'string','json'"
     end
 
     if ! ['ignore','only',nil].include?(options['default_field_behavior'])
@@ -122,8 +122,8 @@ Puppet::Functions.create_function(:hiera_vault) do
       next if secret.nil?
 
       context.explain { "[hiera-vault] Read secret: #{key}" }
-      if (options['default_field'] && ['ignore', nil].include?(options['default_field_behavior'])) ||
-         (secret.data.has_key?(options['default_field'].to_sym) && secret.data.length == 1)
+      if (options['default_field'] and ( ['ignore', nil].include?(options['default_field_behavior']) ||
+         (secret.data.has_key?(options['default_field'].to_sym) && secret.data.length == 1) ) )
 
         return nil if ! secret.data.has_key?(options['default_field'].to_sym)
 
