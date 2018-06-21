@@ -43,6 +43,7 @@ Puppet::Functions.create_function(:hiera_vault) do
       end
     end
 
+    key = key.split("::")[-1]
     if options['strip']
       key = key.sub(options['strip'], '')
     end
