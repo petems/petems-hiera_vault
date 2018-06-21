@@ -38,9 +38,21 @@ Puppet::Functions.create_function(:hiera_vault) do
       regex_key_match = Regexp.union(confine_keys)
 
       unless key[regex_key_match] == key
-        context.explain { "[hiera-vault] Skipping hiera_vault backend because key does not match confine_to_keys" }
+        context.explain { "[hiera-vault] Skipping hiera_vault backend because key '#{key}' does not match confine_to_keys" }
         context.not_found
       end
+    end
+
+    if strip_from_keys = options['strip_from_keys']
+      raise ArgumentError, '[hiera-vault] strip_from_keys must be an array' unless strip_from_keys.is_a?(Array)
+
+      strip_from_keys.each do |prefix|
+        key = key.gsub(Regexp.new(prefix), '')
+      end
+    end
+
+    if ENV['VAULT_TOKEN'] == 'IGNORE-VAULT'
+      return context.not_found
     end
 
     result = vault_get(key, options, context)
@@ -89,7 +101,7 @@ Puppet::Functions.create_function(:hiera_vault) do
 
     # Only generic mounts supported so far
     generic.each do |mount|
-      path = context.interpolate(mount) + key
+      path = context.interpolate(File.join(mount, key))
       context.explain { "[hiera-vault] Looking in path #{path}" }
 
       begin
@@ -112,7 +124,7 @@ Puppet::Functions.create_function(:hiera_vault) do
 
         if options['default_field_parse'] == 'json'
           begin
-            new_answer = JSON.parse(new_answer)
+            new_answer = JSON.parse(new_answer, :quirks_mode => true)
           rescue JSON::ParserError => e
             context.explain { "[hiera-vault] Could not parse string as json: #{e}" }
           end
@@ -130,7 +142,7 @@ Puppet::Functions.create_function(:hiera_vault) do
         break
       end
     end
-
+    answer = context.not_found if answer.nil?
     return answer
   end
 end
