@@ -131,11 +131,10 @@ Puppet::Functions.create_function(:hiera_vault) do
         end
 
       else
-        # Turn secret's hash keys into strings
-        new_answer = secret.data.inject({}) { |h, (k, v)| h[k.to_s] = v; h }
+        # Turn secret's hash keys into strings allow for nested arrays and hashes
+        # this enables support for create resources etc
+        new_answer = secret.data.inject({}) { |h, (k, v)| h[k.to_s] = stringify_keys v; h }
       end
-
-#      context.explain {"[hiera-vault] Data: #{new_answer}:#{new_answer.class}" }
 
       if ! new_answer.nil?
         answer = new_answer
@@ -144,5 +143,21 @@ Puppet::Functions.create_function(:hiera_vault) do
     end
     answer = context.not_found if answer.nil?
     return answer
+  end
+
+  # Stringify key:values so user sees expected results and nested objects
+  def stringify_keys(value)
+    case value
+    when String
+      value
+    when Hash
+      result = {}
+      value.each_pair { |k, v| result[k.to_s] = stringify_keys v }
+      result
+    when Array
+      value.map { |v| stringify_keys v }
+    else
+      value
+    end
   end
 end
