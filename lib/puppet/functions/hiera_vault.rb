@@ -43,6 +43,9 @@ Puppet::Functions.create_function(:hiera_vault) do
       end
     end
 
+    if options['strip']
+      key = key.sub(options['strip'], '')
+    end
     result = vault_get(key, options, context)
 
     return result
@@ -61,7 +64,6 @@ Puppet::Functions.create_function(:hiera_vault) do
 
     begin
       vault = Vault::Client.new
-
       vault.configure do |config|
         config.address = options['address'] unless options['address'].nil?
         if ENV['VAULT_TOKEN']
@@ -76,21 +78,20 @@ Puppet::Functions.create_function(:hiera_vault) do
         config.ssl_ciphers = options['ssl_ciphers'] if config.respond_to? :ssl_ciphers
       end
 
-      # Authenticate using approle if 'token' is not provided but 'role-id' and 'secret-id' are.
-
+      # Authenticate using approle if 'token' is not provided but 'role_id' and 'secret_id' are.
 
       if options['token'].nil?
         role_id = nil
         secret_id = nil
         if ENV['VAULT_ROLE_ID']
           role_id = ENV['VAULT_ROLE_ID']
-        elsif options['role-id']
-          role_id = options['role-id']
+        elsif options['role_id']
+          role_id = options['role_id']
         end
         if ENV['VAULT_SECRET_ID']
           secret_id = ENV['VAULT_SECRET_ID']
-        elsif options['secret-id']
-          secret_id = options['secret-id']
+        elsif options['secret_id']
+          secret_id = options['secret_id']
         end
         if role_id && secret_id
           vault.auth.approle(
@@ -150,8 +151,6 @@ Puppet::Functions.create_function(:hiera_vault) do
         # Turn secret's hash keys into strings
         new_answer = secret.data.inject({}) { |h, (k, v)| h[k.to_s] = v; h }
       end
-
-#      context.explain {"[hiera-vault] Data: #{new_answer}:#{new_answer.class}" }
 
       if ! new_answer.nil?
         answer = new_answer
