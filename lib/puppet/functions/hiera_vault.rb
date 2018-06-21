@@ -43,6 +43,10 @@ Puppet::Functions.create_function(:hiera_vault) do
       end
     end
 
+    key = key.split("::")[-1]
+    if options['strip']
+      key = key.sub(options['strip'], '')
+    end
     result = vault_get(key, options, context)
 
     return result
@@ -61,15 +65,41 @@ Puppet::Functions.create_function(:hiera_vault) do
 
     begin
       vault = Vault::Client.new
-
       vault.configure do |config|
         config.address = options['address'] unless options['address'].nil?
-        config.token = options['token'] unless options['token'].nil?
+        if ENV['VAULT_TOKEN']
+          config.token = ENV['VAULT_TOKEN']
+        elsif options['token']
+          config.token = options['token']
+        end
         config.ssl_pem_file = options['ssl_pem_file'] unless options['ssl_pem_file'].nil?
         config.ssl_verify = options['ssl_verify'] unless options['ssl_verify'].nil?
         config.ssl_ca_cert = options['ssl_ca_cert'] if config.respond_to? :ssl_ca_cert
         config.ssl_ca_path = options['ssl_ca_path'] if config.respond_to? :ssl_ca_path
         config.ssl_ciphers = options['ssl_ciphers'] if config.respond_to? :ssl_ciphers
+      end
+
+      # Authenticate using approle if 'token' is not provided but 'role_id' and 'secret_id' are.
+
+      if options['token'].nil?
+        role_id = nil
+        secret_id = nil
+        if ENV['VAULT_ROLE_ID']
+          role_id = ENV['VAULT_ROLE_ID']
+        elsif options['role_id']
+          role_id = options['role_id']
+        end
+        if ENV['VAULT_SECRET_ID']
+          secret_id = ENV['VAULT_SECRET_ID']
+        elsif options['secret_id']
+          secret_id = options['secret_id']
+        end
+        if role_id && secret_id
+          vault.auth.approle(
+            role_id,
+            secret_id
+          )
+        end
       end
 
       if vault.sys.seal_status.sealed?
@@ -122,8 +152,6 @@ Puppet::Functions.create_function(:hiera_vault) do
         # Turn secret's hash keys into strings
         new_answer = secret.data.inject({}) { |h, (k, v)| h[k.to_s] = v; h }
       end
-
-#      context.explain {"[hiera-vault] Data: #{new_answer}:#{new_answer.class}" }
 
       if ! new_answer.nil?
         answer = new_answer
