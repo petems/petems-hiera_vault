@@ -17,12 +17,21 @@ Puppet::Functions.create_function(:hiera_vault) do
   rescue LoadError => e
     raise Puppet::DataBinding::LookupError, "[hiera-vault] Must install vault gem to use hiera-vault backend"
   end
+  begin
+    require 'debouncer'
+  rescue LoadError => e
+    raise Puppet::DataBinding::LookupError, "[hiera-vault] Must install debouncer gem to use hiera-vault backend"
+  end
+
 
   dispatch :lookup_key do
     param 'Variant[String, Numeric]', :key
     param 'Hash', :options
     param 'Puppet::LookupContext', :context
   end
+
+  @@vault    = Vault::Client.new
+  @@shutdown = Debouncer.new(10) { @@vault.shutdown() }
 
   def lookup_key(key, options, context)
 
@@ -79,9 +88,7 @@ Puppet::Functions.create_function(:hiera_vault) do
     end
 
     begin
-      vault = Vault::Client.new
-
-      vault.configure do |config|
+      @@vault.configure do |config|
         config.address = options['address'] unless options['address'].nil?
         config.token = options['token'] unless options['token'].nil?
         config.ssl_pem_file = options['ssl_pem_file'] unless options['ssl_pem_file'].nil?
@@ -91,13 +98,14 @@ Puppet::Functions.create_function(:hiera_vault) do
         config.ssl_ciphers = options['ssl_ciphers'] if config.respond_to? :ssl_ciphers
       end
 
-      if vault.sys.seal_status.sealed?
+      if @@vault.sys.seal_status.sealed?
         raise Puppet::DataBinding::LookupError, "[hiera-vault] vault is sealed"
       end
 
-      context.explain { "[hiera-vault] Client configured to connect to #{vault.address}" }
+      context.explain { "[hiera-vault] Client configured to connect to #{@@vault.address}" }
     rescue StandardError => e
-      vault = nil
+      @@shutdown.call
+      @@vault = nil
       raise Puppet::DataBinding::LookupError, "[hiera-vault] Skipping backend. Configuration error: #{e}"
     end
 
@@ -112,7 +120,7 @@ Puppet::Functions.create_function(:hiera_vault) do
       context.explain { "[hiera-vault] Looking in path #{path}" }
 
       begin
-        secret = vault.logical.read(path)
+        secret = @@vault.logical.read(path)
       rescue Vault::HTTPConnectionError
         context.explain { "[hiera-vault] Could not connect to read secret: #{path}" }
       rescue Vault::HTTPError => e
@@ -148,7 +156,9 @@ Puppet::Functions.create_function(:hiera_vault) do
         break
       end
     end
+
     answer = context.not_found if answer.nil?
+    @@shutdown.call
     return answer
   end
 
