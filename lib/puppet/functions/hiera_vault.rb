@@ -57,7 +57,14 @@ Puppet::Functions.create_function(:hiera_vault) do
 
     result = vault_get(key, options, context)
 
-    return result
+    # Allow hiera to look beyond vault if the value is not found
+    continue_if_not_found = options['continue_if_not_found'] || false
+
+    if result.nil? and continue_if_not_found
+      context.not_found
+    else
+      return result
+    end
   end
 
 
