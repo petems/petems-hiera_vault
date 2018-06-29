@@ -130,8 +130,7 @@ Puppet::Functions.create_function(:hiera_vault) do
 
     # Only kv mounts supported so far
     kv_mounts.each_pair do |mount, paths|
-      paths.each do |path|
-
+      interpolate(context, paths).each do |path|
         secretpath = context.interpolate(File.join(mount, path))
 
         context.explain { "[hiera-vault] Looking in path #{secretpath} for #{key}" }
@@ -208,5 +207,32 @@ Puppet::Functions.create_function(:hiera_vault) do
     else
       value
     end
+  end
+
+  def interpolate(context, paths)
+    allowed_paths = []
+    paths.each do |path|
+      path = context.interpolate(path)
+      # TODO: Unify usage of '/' - File.join seems to be a mistake, since it won't work on Windows
+      # secret/puppet/scope1,scope2 => [[secret], [puppet], [scope1, scope2]]
+      segments = path.split('/').map { |segment| segment.split(',') }
+      allowed_paths += build_paths(segments) unless segments.empty?
+    end
+    allowed_paths
+  end
+
+  # [[secret], [puppet], [scope1, scope2]] => ['secret/puppet/scope1', 'secret/puppet/scope2']
+  def build_paths(segments)
+    paths = [[]]
+    segments.each do |segment|
+      p = paths.dup
+      paths.clear
+      segment.each do |option|
+        p.each do |path|
+          paths << path + [option]
+        end
+      end
+    end
+    paths.map { |p| File.join(*p) }
   end
 end
