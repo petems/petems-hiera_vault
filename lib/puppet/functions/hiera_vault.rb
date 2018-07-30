@@ -130,12 +130,17 @@ Puppet::Functions.create_function(:hiera_vault) do
       next if secret.nil?
 
       context.explain { "[hiera-vault] Read secret: #{key}" }
+      if secret.data.has_key?(:metadata)
+        sdata = secret.data[:data]
+      else
+        sdata = secret.data
+      end
       if (options['default_field'] and ( ['ignore', nil].include?(options['default_field_behavior']) ||
-         (secret.data.has_key?(options['default_field'].to_sym) && secret.data.length == 1) ) )
+         (sdata.has_key?(options['default_field'].to_sym) && sdata.length == 1) ) )
 
-        return nil if ! secret.data.has_key?(options['default_field'].to_sym)
+        return nil if ! sdata.has_key?(options['default_field'].to_sym)
 
-        new_answer = secret.data[options['default_field'].to_sym]
+        new_answer = sdata[options['default_field'].to_sym]
 
         if options['default_field_parse'] == 'json'
           begin
@@ -148,7 +153,7 @@ Puppet::Functions.create_function(:hiera_vault) do
       else
         # Turn secret's hash keys into strings allow for nested arrays and hashes
         # this enables support for create resources etc
-        new_answer = secret.data.inject({}) { |h, (k, v)| h[k.to_s] = stringify_keys v; h }
+        new_answer = sdata.inject({}) { |h, (k, v)| h[k.to_s] = stringify_keys v; h }
       end
 
       if ! new_answer.nil?
