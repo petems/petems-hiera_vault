@@ -68,7 +68,7 @@ The following are optional configuration parameters supported in the `options` h
 
 `address`: The address of the Vault server, also read as ENV["VAULT_ADDR"]
 
-`token`: The token to authenticate with Vault, also read as ENV["VAULT_TOKEN"]
+`token`: The token to authenticate with Vault, also read as ENV["VAULT_TOKEN"] or a full path to the file with the token
 
 `:confine_to_keys: ` : Only use this backend if the key matches one of the regexes in the array
 
