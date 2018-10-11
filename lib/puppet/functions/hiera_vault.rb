@@ -7,33 +7,40 @@
 
 Puppet::Functions.create_function(:hiera_vault) do
 
-  begin
-    require 'json'
-  rescue LoadError => e
-    raise Puppet::DataBinding::LookupError, "[hiera-vault] Must install json gem to use hiera-vault backend"
-  end
-  begin
-    require 'vault'
-  rescue LoadError => e
-    raise Puppet::DataBinding::LookupError, "[hiera-vault] Must install vault gem to use hiera-vault backend"
-  end
-  begin
-    require 'debouncer'
-  rescue LoadError => e
-    raise Puppet::DataBinding::LookupError, "[hiera-vault] Must install debouncer gem to use hiera-vault backend"
-  end
-
-
   dispatch :lookup_key do
     param 'Variant[String, Numeric]', :key
     param 'Hash', :options
     param 'Puppet::LookupContext', :context
   end
 
-  @@vault    = Vault::Client.new
-  @@shutdown = Debouncer.new(10) { @@vault.shutdown() }
+  def init_gems()
+    begin
+      require 'vault'
+    rescue LoadError => e
+      raise Puppet::DataBinding::LookupError, "[hiera-vault] Must install vault gem to use hiera-vault backend"
+    end
+    begin
+      require 'json'
+    rescue LoadError => e
+      raise Puppet::DataBinding::LookupError, "[hiera-vault] Must install json gem to use hiera-vault backend"
+    end
+    begin
+      require 'debouncer'
+    rescue LoadError => e
+      raise Puppet::DataBinding::LookupError, "[hiera-vault] Must install debouncer gem to use hiera-vault backend"
+    end
+
+    @@shutdown = Debouncer.new(10) { @@vault.shutdown() }
+    @@vault    = Vault::Client.new
+  end
 
   def lookup_key(key, options, context)
+    begin
+      init_gems()
+    rescue => e
+      context.explain {"[hiera-vault] Could not init gems - skipping backend #{e}"}
+      return context.not_found
+    end
 
     if confine_keys = options['confine_to_keys']
       raise ArgumentError, '[hiera-vault] confine_to_keys must be an array' unless confine_keys.is_a?(Array)
@@ -78,7 +85,6 @@ Puppet::Functions.create_function(:hiera_vault) do
 
 
   def vault_get(key, options, context)
-
     if ! ['string','json',nil].include?(options['default_field_parse'])
       raise ArgumentError, "[hiera-vault] invalid value for default_field_parse: '#{options['default_field_parse']}', should be one of 'string','json'"
     end
@@ -90,7 +96,13 @@ Puppet::Functions.create_function(:hiera_vault) do
     begin
       @@vault.configure do |config|
         config.address = options['address'] unless options['address'].nil?
-        config.token = options['token'] unless options['token'].nil?
+        unless options['token'].nil?
+          if options['token'].start_with?('/')
+            config.token = IO.readlines(options['token'])[0].strip if File.file?(options['token'])
+          else
+            config.token = options['token']
+          end
+        end
         config.ssl_pem_file = options['ssl_pem_file'] unless options['ssl_pem_file'].nil?
         config.ssl_verify = options['ssl_verify'] unless options['ssl_verify'].nil?
         config.ssl_ca_cert = options['ssl_ca_cert'] if config.respond_to? :ssl_ca_cert
@@ -106,7 +118,9 @@ Puppet::Functions.create_function(:hiera_vault) do
     rescue StandardError => e
       @@shutdown.call
       @@vault = nil
-      raise Puppet::DataBinding::LookupError, "[hiera-vault] Skipping backend. Configuration error: #{e}"
+      #raise Puppet::DataBinding::LookupError, "[hiera-vault] Skipping backend. Configuration error: #{e}"
+      context.explain {"[hiera-vault] Could not run - skipping backend #{e}"}
+      return context.not_found
     end
 
     answer = nil
