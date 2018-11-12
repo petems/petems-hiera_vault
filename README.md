@@ -22,7 +22,22 @@ The `vault` gem must be installed and loadable from Puppet
 
 ### Installation
 
-The data provider is available by installing the `davealden/hiera_vault` module into your environment.
+The data provider is available by installing the `petems/hiera_vault` module into your environment.
+
+Currently you will have to clone the module to your code enviornment:
+
+```shell
+git clone https://github.com/petems/hiera-vault /etc/puppetlabs/code/environments/production/modules/hiera_vault
+```
+
+Or add it to your Puppetfile
+
+```ruby
+mod 'hiera_vault',
+  :git => 'https://github.com/petems/hiera-vault'
+```
+
+This will eventually be on the forge, and installable with the module command:
 
 ```
 # puppet module install petems/hiera_vault
