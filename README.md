@@ -25,7 +25,7 @@ The `vault` gem must be installed and loadable from Puppet
 The data provider is available by installing the `davealden/hiera_vault` module into your environment.
 
 ```
-# puppet module install davealden/hiera_vault
+# puppet module install petems/hiera_vault
 ```
 
 ### Configuration
