@@ -25,7 +25,6 @@ Puppet::Functions.create_function(:hiera_vault) do
   end
 
   def lookup_key(key, options, context)
-
     if confine_keys = options['confine_to_keys']
       raise ArgumentError, '[hiera-vault] confine_to_keys must be an array' unless confine_keys.is_a?(Array)
 
@@ -62,7 +61,6 @@ Puppet::Functions.create_function(:hiera_vault) do
 
 
   def vault_get(key, options, context)
-
     if ! ['string','json',nil].include?(options['default_field_parse'])
       raise ArgumentError, "[hiera-vault] invalid value for default_field_parse: '#{options['default_field_behavior']}', should be one of 'string','json'"
     end
@@ -76,9 +74,9 @@ Puppet::Functions.create_function(:hiera_vault) do
 
       vault.configure do |config|
         config.address = options['address'] unless options['address'].nil?
-        if options['token'].nil?
-          if options['envvar'] != nil && options['envvar'] != '' && ENV.has_key?(options['envvar'])
-            config.token = ENV[options['envvar']]
+        if options['token'].nil? || options['token'] == ''
+          if options['tokenfile'] != nil && options['tokenfile'] != ''
+            config.token = File.read(options['tokenfile']).strip
           end
         else
           config.token = options['token']
