@@ -76,7 +76,13 @@ Puppet::Functions.create_function(:hiera_vault) do
 
       vault.configure do |config|
         config.address = options['address'] unless options['address'].nil?
-        config.token = options['token'] unless options['token'].nil?
+        if options['token'].nil?
+          unless options['envvar'].nil?
+            config.token = ENV[options['envvar']]
+          end
+        else
+          config.token = options['token']
+        end
         config.ssl_pem_file = options['ssl_pem_file'] unless options['ssl_pem_file'].nil?
         config.ssl_verify = options['ssl_verify'] unless options['ssl_verify'].nil?
         config.ssl_ca_cert = options['ssl_ca_cert'] if config.respond_to? :ssl_ca_cert
