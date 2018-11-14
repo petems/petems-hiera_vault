@@ -75,7 +75,7 @@ Puppet::Functions.create_function(:hiera_vault) do
       vault.configure do |config|
         config.address = options['address'] unless options['address'].nil?
         if options['token'].nil? || options['token'] == ''
-          if options['tokenfile'] != nil && options['tokenfile'] != ''
+          if options['tokenfile'] != nil && options['tokenfile'] != '' && File.exist?(options['tokenfile'])
             config.token = File.read(options['tokenfile']).strip
           end
         else
