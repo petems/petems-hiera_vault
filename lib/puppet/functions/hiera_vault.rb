@@ -77,7 +77,7 @@ Puppet::Functions.create_function(:hiera_vault) do
       vault.configure do |config|
         config.address = options['address'] unless options['address'].nil?
         if options['token'].nil?
-          unless options['envvar'].nil?
+          if options['envvar'] != nil && options['envvar'] != '' && ENV.has_key?(options['envvar'])
             config.token = ENV[options['envvar']]
           end
         else
