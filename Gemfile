@@ -32,5 +32,7 @@ group :test do
 
   gem 'simplecov'
   gem 'simplecov-console'
+
+  gem 'puppet-blacksmith'
 end
 

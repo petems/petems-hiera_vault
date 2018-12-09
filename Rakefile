@@ -2,6 +2,13 @@ require 'puppetlabs_spec_helper/rake_tasks'
 require 'puppet-lint/tasks/puppet-lint'
 require 'metadata-json-lint/rake_task'
 
+# These two gems aren't always present, for instance
+# on Travis with --without development
+begin
+  require 'puppet_blacksmith/rake_tasks'
+rescue LoadError
+end
+
 if RUBY_VERSION >= '1.9'
   require 'rubocop/rake_task'
   RuboCop::RakeTask.new
