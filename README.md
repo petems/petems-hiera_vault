@@ -94,5 +94,5 @@ The following are optional configuration parameters supported in the `options` h
 
 ### Author
 
-* David Alden <dave@alden.name>
-* Peter Souter
+* Original - David Alden <dave@alden.name>
+* Transfered and maintained by Peter Souter
