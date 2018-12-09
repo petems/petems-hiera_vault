@@ -19,7 +19,6 @@ The `vault` gem must be installed and loadable from Puppet
 # puppetserver gem install vault
 ```
 
-
 ### Installation
 
 The data provider is available by installing the `petems/hiera_vault` module into your environment.
@@ -96,3 +95,4 @@ The following are optional configuration parameters supported in the `options` h
 ### Author
 
 * David Alden <dave@alden.name>
+* Peter Souter
