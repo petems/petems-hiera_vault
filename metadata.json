@@ -3,7 +3,7 @@
   "version": "0.1.1",
   "author": "Peter Souter",
   "summary": "Hiera 5 backend to query data lookups from vault",
-  "license": "Apache 2.0",
+  "license": "Apache-2.0",
   "source": "http://github.com/petems/hiera-vault",
   "project_page": "https://github.com/petems/hiera-vault",
   "issues_url": "https://github.com/petems/hiera-vault/issues",
