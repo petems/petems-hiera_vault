@@ -8,7 +8,7 @@ This is a back end function for Hiera 5 that allows lookup to be sourced from Ha
 
 ### Compatibility
 
-* This moduel is only compatible with Hiera 5 (ships with Puppet 4.9+)
+* This moduel is only compatible with Hiera 5 (ships with Puppet 4.9+) and Vault KV engine version 1
 
 ### Requirements
 
