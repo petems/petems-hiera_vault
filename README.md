@@ -8,7 +8,7 @@ This is a back end function for Hiera 5 that allows lookup to be sourced from Ha
 
 ### Compatibility
 
-* This moduel is only compatible with Hiera 5 (ships with Puppet 4.9+)
+* This moduel is only compatible with Hiera 5 (ships with Puppet 4.9+) and Vault KV engine version 1
 
 ### Requirements
 
@@ -82,7 +82,7 @@ The following are optional configuration parameters supported in the `options` h
 
 `address`: The address of the Vault server, also read as ENV["VAULT_ADDR"]
 
-`token`: The token to authenticate with Vault, also read as ENV["VAULT_TOKEN"]
+`token`: The token to authenticate with Vault, also read as ENV["VAULT_TOKEN"] or a full path to the file with the token
 
 `:confine_to_keys: ` : Only use this backend if the key matches one of the regexes in the array
 
