@@ -3,3 +3,4 @@
 coverage/
 vendor/bundle
 pkg/
+log/
