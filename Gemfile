@@ -8,7 +8,7 @@ gem 'puppet', puppetversion
 gem 'rake'
 gem 'rubocop'
 gem 'vault'
-gem 'bouncer'
+gem 'debouncer'
 
 group :development do
   gem 'puppet-lint', '>= 1.0.0'
