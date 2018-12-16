@@ -8,15 +8,7 @@ gem 'puppet', puppetversion
 gem 'rake'
 gem 'rubocop'
 gem 'vault'
-
-# # rspec must be v2 for ruby 1.8.7
-# if RUBY_VERSION >= '1.8.7' && RUBY_VERSION < '1.9'
-#   gem 'rspec', '~> 2.0'
-#   gem 'rake', '~> 10.0'
-# else
-#   # rubocop requires ruby >= 1.9
-#   gem 'rubocop'
-# end
+gem 'bouncer'
 
 group :development do
   gem 'puppet-lint', '>= 1.0.0'
