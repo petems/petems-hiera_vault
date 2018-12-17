@@ -1,10 +1,3 @@
-#
-# TODO:
-#   - Figure out why this works with puppet apply and not puppet agent -t
-#   - Look into caching values
-#   - Test the options: default_field, default_field_behavior, and default_field_parse
-#
-
 Puppet::Functions.create_function(:hiera_vault) do
 
   begin
@@ -29,9 +22,6 @@ Puppet::Functions.create_function(:hiera_vault) do
     param 'Hash', :options
     param 'Puppet::LookupContext', :context
   end
-
-  @@vault    = Vault::Client.new
-  @@shutdown = Debouncer.new(10) { @@vault.shutdown() }
 
   def lookup_key(key, options, context)
 
@@ -60,8 +50,13 @@ Puppet::Functions.create_function(:hiera_vault) do
       end
     end
 
-    if ENV['VAULT_TOKEN'] == 'IGNORE-VAULT'
+    if (ENV['VAULT_TOKEN'] == 'IGNORE-VAULT' || options['token'] == 'IGNORE-VAULT')
+      context.explain { "[hiera-vault] token set to IGNORE-VAULT - Quitting early" }
       return context.not_found
+    end
+
+    if ENV['VAULT_TOKEN'].nil? && options['token'].nil?
+      raise ArgumentError, '[hiera-vault] no token set in options and no token in VAULT_TOKEN'
     end
 
     result = vault_get(key, options, context)
@@ -87,15 +82,16 @@ Puppet::Functions.create_function(:hiera_vault) do
       raise ArgumentError, "[hiera-vault] invalid value for default_field_behavior: '#{options['default_field_behavior']}', should be one of 'ignore','only'"
     end
 
+    vault    = Vault::Client.new
+    shutdown = Debouncer.new(10) { vault.shutdown() }
+
     begin
-      @@vault.configure do |config|
+      vault.configure do |config|
         config.address = options['address'] unless options['address'].nil?
-        if not options['token'].nil?
-          if options['token'].start_with?('/') and File.exist?(options['token'])
-            config.token = File.read(options['token']).strip.chomp
-          else
-            config.token = options['token']
-          end
+        if options['token'].start_with?('/') and File.exist?(options['token'])
+          config.token = File.read(options['token']).strip.chomp
+        else
+          config.token = options['token']
         end
         config.ssl_pem_file = options['ssl_pem_file'] unless options['ssl_pem_file'].nil?
         config.ssl_verify = options['ssl_verify'] unless options['ssl_verify'].nil?
@@ -104,29 +100,34 @@ Puppet::Functions.create_function(:hiera_vault) do
         config.ssl_ciphers = options['ssl_ciphers'] if config.respond_to? :ssl_ciphers
       end
 
-      if @@vault.sys.seal_status.sealed?
+      if vault.sys.seal_status.sealed?
         raise Puppet::DataBinding::LookupError, "[hiera-vault] vault is sealed"
       end
 
-      context.explain { "[hiera-vault] Client configured to connect to #{@@vault.address}" }
+      context.explain { "[hiera-vault] Client configured to connect to #{vault.address}" }
     rescue StandardError => e
-      @@shutdown.call
-      @@vault = nil
+      shutdown.call
+      vault = nil
       raise Puppet::DataBinding::LookupError, "[hiera-vault] Skipping backend. Configuration error: #{e}"
     end
 
     answer = nil
 
-    generic = options['mounts']['generic'].dup
-    generic ||= [ '/secret' ]
+    if options['mounts']['generic']
+      raise ArgumentError, "[hiera-vault] generic is no longer valid - change to kv"
+    else
+      kv_mounts = options['mounts']['kv'].dup
+    end
 
-    # Only generic mounts supported so far
-    generic.each do |mount|
-      path = context.interpolate(File.join(mount, key))
+    # Only kv mounts supported so far
+    kv_mounts.each do |mount|
+
+      # Default to kv v2
+      path = context.interpolate(File.join(mount, 'data', key))
       context.explain { "[hiera-vault] Looking in path #{path}" }
 
       begin
-        secret = @@vault.logical.read(path)
+        secret = vault.logical.read(path)
       rescue Vault::HTTPConnectionError
         context.explain { "[hiera-vault] Could not connect to read secret: #{path}" }
       rescue Vault::HTTPError => e
@@ -164,7 +165,7 @@ Puppet::Functions.create_function(:hiera_vault) do
     end
 
     answer = context.not_found if answer.nil?
-    @@shutdown.call
+    shutdown.call
     return answer
   end
 

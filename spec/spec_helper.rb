@@ -1,4 +1,5 @@
 # frozen_string_literal: true
+
 require 'rspec-puppet'
 require 'rspec-puppet-utils'
 require 'puppetlabs_spec_helper/module_spec_helper'
@@ -7,22 +8,20 @@ require 'simplecov'
 require 'simplecov-console'
 
 class FakeFunction
-  def self.dispatch(name, &block)
-  end
+  def self.dispatch(name, &block); end
 end
-
 
 module Puppet
   module Functions
-    def self.create_function(name, &block)
+    def self.create_function(_name, &block)
       FakeFunction.class_eval(&block)
     end
   end
 end
 
 SimpleCov.formatters = [
-    SimpleCov::Formatter::HTMLFormatter,
-    SimpleCov::Formatter::Console,
+  SimpleCov::Formatter::HTMLFormatter,
+  SimpleCov::Formatter::Console
 ]
 
 SimpleCov.start do
@@ -48,11 +47,11 @@ SimpleCov.start do
 end
 
 RSpec.configure do |config|
-   config.expect_with :rspec
-   # Enable rpec-mocks
-   config.mock_with :rspec
+  config.expect_with :rspec
+  # Enable rpec-mocks
+  config.mock_with :rspec
 
-   begin
-     config.warnings = false
-   end
+  begin
+    config.warnings = false
+  end
 end
