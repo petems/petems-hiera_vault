@@ -2,13 +2,17 @@
 
 ### Description
 
+> Warning: master may be broken whilst this repo is upgraded for k/v v2 and newer Vault version upgrades! Please use the 0.1.0 tagged release in the meantime. This message will be removed and a 1.0.0 breaking release will be tagged on the Forge in the future.
+
 This is a back end function for Hiera 5 that allows lookup to be sourced from Hashicorp's Vault.
 
 [Vault](https://vaultproject.io) secures, stores, and tightly controls access to tokens, passwords, certificates, API keys, and other secrets in modern computing. Vault handles leasing, key revocation, key rolling, and auditing. Vault presents a unified API to access multiple backends: HSMs, AWS IAM, SQL databases, raw key/value, and more.
 
+For an example repo of it in action, check out the [petems/puppet-hiera-vault-vagrant](https://github.com/petems/puppet-hiera-vault-vagrant) repo and webinar ['How to Use HashiCorp Vault with Hiera 5 for Secret Management with Puppet'](https://www.hashicorp.com/resources/hashicorp-vault-with-puppet-hiera-5-for-secret-management)
+
 ### Compatibility
 
-* This moduel is only compatible with Hiera 5 (ships with Puppet 4.9+) and Vault KV engine version 1
+* This moduel is only compatible with Hiera 5 (ships with Puppet 4.9+) and Vault KV engine version 2 (Vault 0.10+)
 
 ### Requirements
 
@@ -21,25 +25,25 @@ The `vault` gem must be installed and loadable from Puppet
 
 ### Installation
 
-The data provider is available by installing the `petems/hiera_vault` module into your environment.
+The data provider is available by installing the `petems/hiera_vault` module into your environment:
 
-Currently you will have to clone the module to your code enviornment:
+This will avaliable on the forge, and installable with the module command:
+
+```
+# puppet module install petems/hiera_vault
+```
+
+You can also download the module directly:
 
 ```shell
-git clone https://github.com/petems/hiera-vault /etc/puppetlabs/code/environments/production/modules/hiera_vault
+git clone https://github.com/petems/petems-hiera_vault /etc/puppetlabs/code/environments/production/modules/hiera_vault
 ```
 
 Or add it to your Puppetfile
 
 ```ruby
 mod 'hiera_vault',
-  :git => 'https://github.com/petems/hiera-vault'
-```
-
-This will eventually be on the forge, and installable with the module command:
-
-```
-# puppet module install petems/hiera_vault
+  :git => 'https://github.com/petems/petems-hiera_vault'
 ```
 
 ### Configuration
@@ -66,9 +70,9 @@ hierarchy:
       token: <insert-your-vault-token-here>
       default_field: value
       mounts:
-        generic:
-          - secret/puppet/%{::trusted.certname}/
-          - secret/puppet/common/
+        kv:
+          - secret/puppet/%{::trusted.certname}
+          - secret/puppet/common
 ```
 
 The following mandatory Hiera 5 options must be set for each level of the hierarchy.
@@ -77,18 +81,25 @@ The following mandatory Hiera 5 options must be set for each level of the hierar
 
 `lookup_key`: This option must be set to `hiera_vault`
 
-
 The following are optional configuration parameters supported in the `options` hash of the Hiera 5 config
 
-`address`: The address of the Vault server, also read as ENV["VAULT_ADDR"]
+`address`: The address of the Vault server, also read as `ENV["VAULT_ADDR"]`
 
-`token`: The token to authenticate with Vault, also read as ENV["VAULT_TOKEN"] or a full path to the file with the token
+`token`: The token to authenticate with Vault, also read as `ENV["VAULT_TOKEN"]` or a full path to the file with the token (eg. `/etc/vault_token.txt`). When bootstrapping, you can set this token as `IGNORE-VAULT` and the backend will be stubbed, which can be useful when bootstrapping.
 
-`:confine_to_keys: ` : Only use this backend if the key matches one of the regexes in the array
+`confine_to_keys:`: Only use this backend if the key matches one of the regexes in the array, to avoid constantly reaching out to Vault for every parameter lookup
 
       confine_to_keys:
         - "application.*"
         - "apache::.*"
+
+`default_field:`: The default field within data to return. If not present, the lookup will be the full contents of the secret data.
+
+`mounts:`: The list of mounts you want to do lookups against. This is treated as the backend hiearchy for lookup. It is recomended you use [Trusted Facts](https://puppet.com/docs/puppet/5.3/lang_facts_and_builtin_vars.html#trusted-facts) within the hierachy to ensure lookups are restricted to the correct hierachy points.
+
+**NOTE** Previously, the `kv` backend was called `generic` and was read by calling `v1/secret/my-secret`. In Vault `0.10+`, this has been renamed as `kv`, and now has extra metadata and versioning, with the data now read from `v1/secret/data/my-secret`. `hiera_vault` will now look for this data instead.
+
+Documentation here: https://www.vaultproject.io/api/secret/kv/kv-v2.html
 
 `:ssl_verify`: Specify whether to verify SSL certificates (default: true)
 
