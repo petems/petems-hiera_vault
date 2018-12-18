@@ -30,8 +30,8 @@ describe FakeFunction do
       'address' => RSpec::VaultServer.address,
       'token' => RSpec::VaultServer.token,
       'mounts' => {
-        'kv' => [
-          'puppet'
+        'puppet' => [
+          'common'
         ]
       }
     }
@@ -89,13 +89,13 @@ describe FakeFunction do
       context 'when vault is unsealed' do
         before(:context) do
           vault_test_client.sys.mount('puppet', 'kv', 'puppet secrets')
-          vault_test_client.logical.write('puppet/data/test_key', value: 'default')
-          vault_test_client.logical.write('puppet/data/array_key', value: '["a", "b", "c"]')
-          vault_test_client.logical.write('puppet/data/hash_key', value: '{"a": 1, "b": 2, "c": 3}')
-          vault_test_client.logical.write('puppet/data/multiple_values_key', a: 1, b: 2, c: 3)
-          vault_test_client.logical.write('puppet/data/values_key', value: 123, a: 1, b: 2, c: 3)
-          vault_test_client.logical.write('puppet/data/broken_json_key', value: '[,')
-          vault_test_client.logical.write('puppet/data/confined_vault_key', value: 'find_me')
+          vault_test_client.logical.write('puppet/common/test_key', value: 'default')
+          vault_test_client.logical.write('puppet/common/array_key', value: '["a", "b", "c"]')
+          vault_test_client.logical.write('puppet/common/hash_key', value: '{"a": 1, "b": 2, "c": 3}')
+          vault_test_client.logical.write('puppet/common/multiple_values_key', a: 1, b: 2, c: 3)
+          vault_test_client.logical.write('puppet/common/values_key', value: 123, a: 1, b: 2, c: 3)
+          vault_test_client.logical.write('puppet/common/broken_json_key', value: '[,')
+          vault_test_client.logical.write('puppet/common/confined_vault_key', value: 'find_me')
         end
 
         context 'configuring vault' do
@@ -139,7 +139,7 @@ describe FakeFunction do
             vault_token_tmpfile.puts('not-valid-token')
             vault_token_tmpfile.close
             expect { function.lookup_key('test_key', vault_options.merge({'token' => vault_token_tmpfile.path}), context) }.
-              to output(/Could not read secret puppet\/data\/test_key: permission denied/).to_stdout
+              to output(/Could not read secret puppet\/common\/test_key: permission denied/).to_stdout
           end
         end
 

@@ -46,7 +46,7 @@ mod 'hiera_vault',
   :git => 'https://github.com/petems/petems-hiera_vault'
 ```
 
-### Configuration
+### Hiera Configuration
 
 See [The official Puppet documentation](https://docs.puppet.com/puppet/4.9/hiera_intro.html) for more details on configuring Hiera 5.
 
@@ -70,9 +70,9 @@ hierarchy:
       token: <insert-your-vault-token-here>
       default_field: value
       mounts:
-        kv:
-          - secret/puppet/%{::trusted.certname}
-          - secret/puppet/common
+        puppet:
+          - %{::trusted.certname}
+          - common
 ```
 
 The following mandatory Hiera 5 options must be set for each level of the hierarchy.
@@ -95,13 +95,40 @@ The following are optional configuration parameters supported in the `options` h
 
 `default_field:`: The default field within data to return. If not present, the lookup will be the full contents of the secret data.
 
-`mounts:`: The list of mounts you want to do lookups against. This is treated as the backend hiearchy for lookup. It is recomended you use [Trusted Facts](https://puppet.com/docs/puppet/5.3/lang_facts_and_builtin_vars.html#trusted-facts) within the hierachy to ensure lookups are restricted to the correct hierachy points.
-
-**NOTE** Previously, the `kv` backend was called `generic` and was read by calling `v1/secret/my-secret`. In Vault `0.10+`, this has been renamed as `kv`, and now has extra metadata and versioning, with the data now read from `v1/secret/data/my-secret`. `hiera_vault` will now look for this data instead.
-
-Documentation here: https://www.vaultproject.io/api/secret/kv/kv-v2.html
+`mounts:`: The list of mounts you want to do lookups against. This is treated as the backend hiearchy for lookup. It is recomended you use [Trusted Facts](https://puppet.com/docs/puppet/5.3/lang_facts_and_builtin_vars.html#trusted-facts) within the hierachy to ensure lookups are restricted to the correct hierachy points. See [Mounts](####Mounts)
 
 `:ssl_verify`: Specify whether to verify SSL certificates (default: true)
+
+### Vault Configuration
+
+NOTE: Currently only kv version 1 is supported by `hiera_vault`. Support for v2 will require some changes upstream in the `vault` gem.
+
+#### Mounts
+
+It is recomended to have a specific mount for your Puppet secrets, to avoid conflicts with an existing secrets backend.
+
+From the command line:
+
+```
+vault secrets enable -version=1 -path=puppet kv
+```
+
+We will then configure this in our hiera config:
+
+```yaml
+mounts:
+  puppet:
+    - %{::trusted.certname}
+    - common
+```
+
+Then when a hiera call is made with lookup on a machine with the certname of `foo.example.com`:
+
+```
+$cool_key = lookup({"name" => "cool_key", "default_value" => "No Vault Secret Found"})
+```
+
+Secrets will then be looked up with the following path: `http://vault.example.com:8200/v1/puppet/foo.example.com/cool_key`
 
 ### Author
 
