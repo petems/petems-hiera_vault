@@ -99,6 +99,27 @@ The following are optional configuration parameters supported in the `options` h
 
 `:ssl_verify`: Specify whether to verify SSL certificates (default: true)
 
+
+### Debugging
+
+```
+puppet lookup vault_notify --explain --compile --node=node1.vm
+Searching for "vault_notify"
+  Global Data Provider (hiera configuration version 3)
+    Using configuration "/etc/puppetlabs/code/hiera.yaml"
+    Hierarchy entry "yaml"
+      Path "/etc/puppetlabs/code/environments/production/hieradata/node1.yaml"
+        Original path: "%{::hostname}"
+        No such key: "vault_notify"
+      Path "/etc/puppetlabs/code/environments/production/hieradata/common.yaml"
+        Original path: "common"
+        Path not found
+  Environment Data Provider (hiera configuration version 5)
+    Using configuration "/etc/puppetlabs/code/environments/production/hiera.yaml"
+    Hierarchy entry "Hiera-vault lookup"
+      Found key: "vault_notify" value: "hello123"
+```
+
 ### Vault Configuration
 
 NOTE: Currently only kv version 1 is supported by `hiera_vault`. Support for v2 will require some changes upstream in the `vault` gem.
