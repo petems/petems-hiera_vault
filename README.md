@@ -38,6 +38,32 @@ ini_setting { "Change jruby to 9k":
   show_diff         => true,
   notify            => Service['puppetserver']
 }
+
+package { 'vault-puppetserver-gem':
+  ensure   => 'present',
+  name     => 'vault',
+  provider => 'puppetserver_gem',
+}
+->
+package { 'vault-puppetpath-gem':
+  ensure   => 'present',
+  name     => 'vault',
+  provider => 'puppet_gem',
+}
+->
+package { 'debouncer-puppetserver-gem':
+  ensure   => 'present',
+  name     => 'debouncer',
+  provider => 'puppetserver_gem',
+}
+->
+package { 'debouncer-puppetpath-gem':
+  ensure   => 'present',
+  name     => 'debouncer',
+  provider => 'puppet_gem',
+}
+~> Service['puppetserver']
+
 ```
 
 On Puppetserver >= 6, this is not needed as the default has been moved to the newer JRuby.
