@@ -23,6 +23,25 @@ The `vault` gem must be installed and loadable from Puppet
 # puppetserver gem install vault
 ```
 
+On Puppetserver <= 5, you will need to switch Puppetserver to use the new JRuby 9K, as the gem requires Ruby 2+, and Puppetserver uses the 1.9.2 JRuby
+
+Some example Puppetcode to do so:
+
+```
+ini_setting { "Change jruby to 9k":
+  ensure            => present,
+  setting           => 'JRUBY_JAR',
+  path              => "/etc/sysconfig/puppetserver",
+  key_val_separator => '=',
+  section           => '',
+  value             => '"/opt/puppetlabs/server/apps/puppetserver/jruby-9k.jar"',
+  show_diff         => true,
+  notify            => Service['puppetserver']
+}
+```
+
+On Puppetserver >= 6, this is not needed as the default has been moved to the newer JRuby.
+
 ### Installation
 
 The data provider is available by installing the `petems/hiera_vault` module into your environment:
