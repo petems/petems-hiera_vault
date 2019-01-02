@@ -4,3 +4,4 @@ coverage/
 vendor/bundle
 pkg/
 log/
+spec/fixtures/
