@@ -46,45 +46,6 @@ describe FakeFunction do
 
   describe '#lookup_key' do
     context 'accessing vault' do
-      context 'supplied with invalid parameters' do
-        it 'should error when default_field_parse is not in [ string, json ]' do
-          expect { function.lookup_key('test_key', vault_options.merge('default_field_parse' => 'invalid'), context) }
-            .to raise_error(ArgumentError, '[hiera-vault] invalid value for default_field_parse: \'invalid\', should be one of \'string\',\'json\'')
-        end
-
-        it 'should error when default_field_behavior is not in [ ignore, only ]' do
-          expect { function.lookup_key('test_key', vault_options.merge('default_field_behavior' => 'invalid'), context) }
-            .to raise_error(ArgumentError, '[hiera-vault] invalid value for default_field_behavior: \'invalid\', should be one of \'ignore\',\'only\'')
-        end
-
-        it 'should error when confine_to_keys is no array' do
-          expect { function.lookup_key('test_key', { 'confine_to_keys' => '^vault.*$' }, context) }
-            .to raise_error(ArgumentError, '[hiera-vault] confine_to_keys must be an array')
-        end
-
-        it 'should error when passing invalid regexes' do
-          expect { function.lookup_key('test_key', { 'confine_to_keys' => ['['] }, context) }
-            .to raise_error(Puppet::DataBinding::LookupError, '[hiera-vault] creating regexp failed with: premature end of char-class: /[/')
-        end
-
-        it 'should error when token isnst specified' do
-          expect { function.lookup_key('test_key', vault_options.merge('token' => nil), context) }
-            .to raise_error(ArgumentError, '[hiera-vault] no token set in options and no token in VAULT_TOKEN')
-        end
-      end
-
-      context 'when vault is sealed' do
-        before(:context) do
-          vault_test_client.sys.seal
-        end
-        it 'should raise error for Vault being sealed' do
-          expect { function.lookup_key('test_key', vault_options, context) }
-            .to raise_error(Puppet::DataBinding::LookupError, '[hiera-vault] Skipping backend. Configuration error: [hiera-vault] vault is sealed')
-        end
-        after(:context) do
-          vault_test_client.sys.unseal(RSpec::VaultServer.unseal_token)
-        end
-      end
 
       context 'when vault is unsealed' do
         before(:context) do
@@ -96,6 +57,7 @@ describe FakeFunction do
           vault_test_client.logical.write('puppet/common/values_key', value: 123, a: 1, b: 2, c: 3)
           vault_test_client.logical.write('puppet/common/broken_json_key', value: '[,')
           vault_test_client.logical.write('puppet/common/confined_vault_key', value: 'find_me')
+          vault_test_client.logical.write('puppet/common/stripped_key', value: 'regexed_key')
         end
 
         context 'configuring vault' do
@@ -224,6 +186,18 @@ describe FakeFunction do
             }.merge(vault_options), context))
               .to be_nil
           end
+
+          it 'should return nil but continue to look if continue_if_not_found is present' do
+            expect(context).to receive(:not_found)
+            expect(function.lookup_key('doesnt_exist', vault_options.merge('continue_if_not_found' => true), context))
+              .to be_nil
+          end
+
+          it 'should gsub the path string if strip_from_keys is present' do
+            expect(function.lookup_key('stripped_key12345', vault_options.merge('strip_from_keys' => [/[0-9]*/], 'default_field' => 'value'), context))
+              .to eql('regexed_key')
+          end
+
         end
       end
     end
