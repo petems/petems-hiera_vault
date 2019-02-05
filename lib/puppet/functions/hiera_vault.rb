@@ -104,7 +104,7 @@ Puppet::Functions.create_function(:hiera_vault) do
         raise Puppet::DataBinding::LookupError, "[hiera-vault] vault is sealed"
       end
 
-      context.explain { "[hiera-vault] Client configured to connect to # $vault.address}" }
+      context.explain { "[hiera-vault] Client configured to connect to #{$vault.address}" }
     rescue StandardError => e
       $shutdown.call
       $vault = nil
