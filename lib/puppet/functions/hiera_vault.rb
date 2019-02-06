@@ -120,49 +120,53 @@ Puppet::Functions.create_function(:hiera_vault) do
     end
 
     # Only kv mounts supported so far
-    kv_mounts.each do |mount|
+    kv_mounts.each_pair do |mount, paths|
+      paths.each do |path|
 
-      # Default to kv v1
-      path = context.interpolate(File.join(mount, key))
+        # Default to kv v1
+        secretpath = context.interpolate(File.join(mount, path, key))
 
-      context.explain { "[hiera-vault] Looking in path #{path}" }
+        context.explain { "[hiera-vault] Looking in path #{secretpath}" }
 
-      begin
-        secret = $vault.logical.read(path)
-      rescue Vault::HTTPConnectionError
-        context.explain { "[hiera-vault] Could not connect to read secret: #{path}" }
-      rescue Vault::HTTPError => e
-        context.explain { "[hiera-vault] Could not read secret #{path}: #{e.errors.join("\n").rstrip}" }
-      end
-
-      next if secret.nil?
-
-      context.explain { "[hiera-vault] Read secret: #{key}" }
-      if (options['default_field'] and ( ['ignore', nil].include?(options['default_field_behavior']) ||
-         (secret.data.has_key?(options['default_field'].to_sym) && secret.data.length == 1) ) )
-
-        return nil if ! secret.data.has_key?(options['default_field'].to_sym)
-
-        new_answer = secret.data[options['default_field'].to_sym]
-
-        if options['default_field_parse'] == 'json'
-          begin
-            new_answer = JSON.parse(new_answer, :quirks_mode => true)
-          rescue JSON::ParserError => e
-            context.explain { "[hiera-vault] Could not parse string as json: #{e}" }
-          end
+        begin
+          secret = $vault.logical.read(secretpath)
+        rescue Vault::HTTPConnectionError
+          context.explain { "[hiera-vault] Could not connect to read secret: #{secretpath}" }
+        rescue Vault::HTTPError => e
+          context.explain { "[hiera-vault] Could not read secret #{secretpath}: #{e.errors.join("\n").rstrip}" }
         end
 
-      else
-        # Turn secret's hash keys into strings allow for nested arrays and hashes
-        # this enables support for create resources etc
-        new_answer = secret.data.inject({}) { |h, (k, v)| h[k.to_s] = stringify_keys v; h }
+        next if secret.nil?
+
+        context.explain { "[hiera-vault] Read secret: #{key}" }
+        if (options['default_field'] and ( ['ignore', nil].include?(options['default_field_behavior']) ||
+           (secret.data.has_key?(options['default_field'].to_sym) && secret.data.length == 1) ) )
+
+          return nil if ! secret.data.has_key?(options['default_field'].to_sym)
+
+          new_answer = secret.data[options['default_field'].to_sym]
+
+          if options['default_field_parse'] == 'json'
+            begin
+              new_answer = JSON.parse(new_answer, :quirks_mode => true)
+            rescue JSON::ParserError => e
+              context.explain { "[hiera-vault] Could not parse string as json: #{e}" }
+            end
+          end
+
+        else
+          # Turn secret's hash keys into strings allow for nested arrays and hashes
+          # this enables support for create resources etc
+          new_answer = secret.data.inject({}) { |h, (k, v)| h[k.to_s] = stringify_keys v; h }
+        end
+
+        unless new_answer.nil?
+          answer = new_answer
+          break
+        end
       end
 
-      if ! new_answer.nil?
-        answer = new_answer
-        break
-      end
+      break unless answer.nil?
     end
 
     answer = context.not_found if answer.nil?
