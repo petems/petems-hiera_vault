@@ -61,10 +61,10 @@ Puppet::Functions.create_function(:hiera_vault) do
             "#{options['default_field_behavior']}', should be one of 'ignore','only'")
       end
 
-      unless options['environment_delimeter'].is_a?(String)
+      unless options['environment_delimiter'].is_a?(String)
         raise ArgumentError,
-          _("[hiera-vault] invalid value for environment_delimeter: "\
-            "#{options['environment_delimeter']} must be a string")
+          _("[hiera-vault] invalid value for environment_delimiter: "\
+            "#{options['environment_delimiter']} must be a string")
       end
 
       # While the vault client _does_ default the address to https://127.0.0.1:8200
@@ -341,9 +341,9 @@ Puppet::Functions.create_function(:hiera_vault) do
     # If we have an environment delimiter, let's adjust the hash
     # such that we only have fields with _this_ environment OR
     # without _any_ environment
-    unless options['environment_delimeter'].nil?
+    unless options['environment_delimiter'].nil?
       # Collect the base_fields
-      delim = options['environment_delimeter']
+      delim = options['environment_delimiter']
 
       context.explain { "Getting Environment values based on #{delim}"}
       env   = context.environment_name()
