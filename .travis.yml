@@ -4,12 +4,8 @@ language: ruby
 cache: bundler
 
 env:
-  - PUPPET_VERSION="~> 5" VAULT_VERSION=1.0.1
-  - PUPPET_VERSION="~> 5" VAULT_VERSION=0.11.6
-  - PUPPET_VERSION="~> 5" VAULT_VERSION=0.10.4
-  - PUPPET_VERSION="~> 6" VAULT_VERSION=1.0.1
-  - PUPPET_VERSION="~> 6" VAULT_VERSION=0.11.6
-  - PUPPET_VERSION="~> 6" VAULT_VERSION=0.10.4
+  - VAULT_VERSION=1.0.3
+  - VAULT_VERSION=1.1.2
 
 before_install:
   - curl -sLo vault.zip https://releases.hashicorp.com/vault/${VAULT_VERSION}/vault_${VAULT_VERSION}_linux_amd64.zip
@@ -17,7 +13,6 @@ before_install:
   - mkdir -p ~/bin
   - mv vault ~/bin
   - export PATH="~/bin:$PATH"
-  - rm Gemfile.lock
 
 branches:
   only:
