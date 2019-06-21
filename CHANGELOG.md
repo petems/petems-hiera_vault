@@ -1,4 +1,14 @@
-# Change Log
+# Change log
+
+All notable changes to this project will be documented in this file. The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/) and this project adheres to [Semantic Versioning](http://semver.org).
+
+## [v0.4.1](https://github.com/petems/petems-hiera_vault/tree/v0.4.1) (2019-06-21)
+[Full Changelog](https://github.com/petems/petems-hiera_vault/compare/v0.3.1...v0.4.1)
+
+**Merged pull requests:**
+
+- Update Rspec setup [\#37](https://github.com/petems/petems-hiera_vault/pull/37) ([petems](https://github.com/petems))
+- Fixed bug with multiple paths in mount [\#31](https://github.com/petems/petems-hiera_vault/pull/31) ([kozl](https://github.com/kozl))
 
 ## [v0.3.1](https://github.com/petems/petems-hiera_vault/tree/v0.3.1) (2019-05-02)
 [Full Changelog](https://github.com/petems/petems-hiera_vault/compare/v0.2.2...v0.3.1)
