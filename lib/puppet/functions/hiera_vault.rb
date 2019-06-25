@@ -130,6 +130,10 @@ Puppet::Functions.create_function(:hiera_vault) do
     # We'll use the same vault client, but re-configure it every time?
     # This should reduce the number established connections...
     # and be cache safe
+
+    # In cached environments, if the $vault object get's gc'ed let's make it again
+    $vault = Vault::Client.new unless $vault.is_a? Vault::Client
+
     $vault.configure do |config|
       config.address = options['address']
       if options['token'].start_with?('/') and File.exist?(options['token'])
@@ -177,7 +181,6 @@ Puppet::Functions.create_function(:hiera_vault) do
       end
     rescue StandardError => e
       $shutdown.call
-      $vault = nil
       raise Puppet::DataBinding::LookupError,
         _("[hiera-vault] Skipping backend. Error: #{e}")
     end
