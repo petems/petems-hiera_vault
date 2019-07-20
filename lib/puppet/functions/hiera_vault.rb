@@ -8,13 +8,6 @@
   end
 end
 
-# Globally cache these things, we'll re-configure the
-# client every time we call, but really only want to have
-# one such that we don't create more connections to vault than
-# we can handle.
-$vault               = Vault::Client.new
-$shutdown            = Debouncer.new(10) { $vault.shutdown() }
-
 Puppet::Functions.create_function(:hiera_vault) do
 
   # Expect these things from Puppet
@@ -23,6 +16,24 @@ Puppet::Functions.create_function(:hiera_vault) do
     param 'Hash', :options
     param 'Puppet::LookupContext', :context
   end
+
+  $vault               = Vault::Client.new
+  $shutdown            = Debouncer.new(10) {
+    # If we have a cached environment, we don't need to shutdown
+    # the pools, they will be cleaned up when the jruby reloads
+    unless Puppet.settings[:environment_timeout] == Float::INFINITY
+      $vault.shutdown()
+    end
+  }
+
+  # Because we're only reading and renewing tokens,
+  # wrap all of the calls to vault in retries.
+  # This is primarily inteded to avoid the race condition
+  # between the debounce shutdown and calls to vault.
+  $VAULT_RETRY_EXCEPTIONS = [
+    Vault::HTTPError,
+    Vault::ConnectionPool::PoolShuttingDownError
+  ]
 
   # This is the main function that Puppet/Hiera Calls
   def lookup_key(key, options, context)
@@ -121,18 +132,22 @@ Puppet::Functions.create_function(:hiera_vault) do
     # We made it through all the hard config failures, let's not do that again
     context.cache('HIERA_VAULT_CACHE_config_check', true)
 
+    # Get out if the key shouldn't go to vault
+    unless confine_keys_regexp.nil?
+      unless key[confine_keys_regexp] == key
+        context.explain { "Skipping '#{key}' no match in confine_to_keys" }
+        context.not_found
+      end
+    end
+
     # This allows us to skip this backend completely if the puppet run doesn't need it
     if (ENV['VAULT_TOKEN'] == 'IGNORE-VAULT' or options['token'] == 'IGNORE-VAULT')
       context.explain { "Token set to IGNORE-VAULT - Ignoring" }
       context.not_found
     end
 
-    # We'll use the same vault client, but re-configure it every time?
-    # This should reduce the number established connections...
-    # and be cache safe
-
     # In cached environments, if the $vault object get's gc'ed let's make it again
-    $vault = Vault::Client.new unless $vault.is_a? Vault::Client
+    $vault = context.cache("HIERA_VAULT_CLIENT", Vault::Client.new) unless $vault.is_a? Vault::Client
 
     $vault.configure do |config|
       config.address = options['address']
@@ -144,6 +159,7 @@ Puppet::Functions.create_function(:hiera_vault) do
       else
         config.token = options['token']
       end
+
       config.ssl_pem_file = options['ssl_pem_file'] unless options['ssl_pem_file'].nil?
       config.ssl_verify   = options['ssl_verify']   unless options['ssl_verify'].nil?
       config.ssl_ca_cert  = options['ssl_ca_cert'] if config.respond_to? :ssl_ca_cert
@@ -156,7 +172,11 @@ Puppet::Functions.create_function(:hiera_vault) do
     begin
       # Set the token expiry so we don't have to check every time
       if token_expiry.nil?
-        token         = $vault.auth_token.lookup_self
+        token = $vault.with_retries(*$VAULT_RETRY_EXCEPTIONS) do |attempt, err|
+          Puppet.warn "[hiera-vault] Attempt #{attempt} - #{e}" if err
+          $vault.auth_token.lookup_self
+        end
+
         token_expiry = context.cache(
           'HIERA_VAULT_CACHE_token_expiry',
           Time.now + token.data[:ttl]
@@ -168,12 +188,30 @@ Puppet::Functions.create_function(:hiera_vault) do
       # If the current time is greater than the expiry time minus a buffer
       # and the token is renewable, do the thing
       if Time.now >= token_expiry - 10 and token.data[:renewable]
-        $vault.auth_token.renew_self
+        token = $vault.with_retries(*$VAULT_RETRY_EXCEPTIONS) do |attempt, err|
+          Puppet.warn "[hiera-vault] Attempt #{attempt} - #{err}" if err
+          $vault.auth_token.renew_self
+          $vault.auth_token.lookup_self
+        end
+        token_expiry = context.cache(
+          'HIERA_VAULT_CACHE_token_expiry',
+          Time.now + token.data[:ttl]
+        )
         context.explain { "Renewed Vault Token"}
       end
+    rescue StandardError => e
+      raise Puppet::DataBinding::LookupError,
+        _("[hiera-vault] Skipping backend. Error handling token expiry: #{e}")
+    end
+
+    begin
       # We can't talk to a sealed vault...Check every time
       unless seal_checked
-        if $vault.sys.seal_status.sealed?
+        sealed = $vault.with_retries(*$VAULT_RETRY_EXCEPTIONS) do |attempt, err|
+          Puppet.warn "[hiera-vault] Attempt #{attempt} - #{err}" if err
+          $vault.sys.seal_status.sealed?
+        end
+        if sealed
           raise Puppet::DataBinding::LookupError,
             _("[hiera-vault] Vault #{vault.address} is sealed")
         end
@@ -182,14 +220,7 @@ Puppet::Functions.create_function(:hiera_vault) do
     rescue StandardError => e
       $shutdown.call
       raise Puppet::DataBinding::LookupError,
-        _("[hiera-vault] Skipping backend. Error: #{e}")
-    end
-
-    unless confine_keys_regexp.nil?
-      unless key[confine_keys_regexp] == key
-        context.explain { "Skipping '#{key}' no match in confine_to_keys" }
-        context.not_found
-      end
+        _("[hiera-vault] Skipping backend. Error checking seal: #{e}")
     end
 
     # Before looking up the value in vault, strip this regex from the key
@@ -215,7 +246,7 @@ Puppet::Functions.create_function(:hiera_vault) do
       context.explain { "#{Time.now.to_f} Finished Checking"}
       context.not_found
     else
-      context.cache(key, result)
+      context.cache("HIERA_VAULT_VALUE_CACHE_#{key}", result)
     end
   end
 
@@ -258,8 +289,8 @@ Puppet::Functions.create_function(:hiera_vault) do
       File.join(uri, vault_key)
     context.explain { "Final uri: #{kv_uri}"}
     keys_uri = v2 ?
-      File.join('v1', mount, 'metadata', uri.delete_prefix(mount)) :
-      File.join('v1',uri)
+      File.join(mount, 'metadata', uri.delete_prefix(mount)) :
+      File.join(uri)
 
     # Get the keys available at this endpoint
     # and cache the results to reduce the number of calls
@@ -271,15 +302,13 @@ Puppet::Functions.create_function(:hiera_vault) do
     # If there is no cached value, let's go get one
     if available_keys.nil?
       context.explain { "#{Time.now.to_f} Getting key list from #{keys_uri}"}
-      raw_available_keys = vault_list(keys_uri, context)
-      if raw_available_keys.nil?
+      raw_available_keys = vault_logical(:list, keys_uri, context)
+      if raw_available_keys.nil? || raw_available_keys.length == 0
         # If we got nothing, that's fine, just set an empty array
         # This path won't be checked anymore
         available_keys = []
       else
-        available_keys = v2 ?
-          raw_available_keys[:data][:keys] :
-          raw_available_keys # Not sure this is exactly correct for v1?
+        available_keys = raw_available_keys
       end
       context.cache('HIERA_VAULT_CACHE_available_keys', available_keys)
     end
@@ -291,7 +320,7 @@ Puppet::Functions.create_function(:hiera_vault) do
     # We are pretty sure that there will be a value at the end of this path
     # So let's get it!
     if available_keys.is_a?(Array) and available_keys.include? (vault_key)
-      raw_secret = vault_read(kv_uri, context)
+      raw_secret = vault_logical(:read, kv_uri, context)
     end
 
     return nil if raw_secret.nil?
@@ -299,11 +328,17 @@ Puppet::Functions.create_function(:hiera_vault) do
     return parse_secret(secret, options, context)
   end
 
-  # Pretty generic list from vault (needs our vault gem 0.12.3+)
-  def vault_list(path, context)
+  # Make a vault.logical request with a bit of error handling
+  # If using the vault agent it requires vault >= 1.1.3 to support
+  # proxying request query parameters [GH-6772]. The puppet http
+  # connection object does not support the LIST http method.
+  def vault_logical(method, path, context)
     begin
       context.explain { "Calling vault #{Time.now.to_f}"}
-      resp = $vault.request(:list,path)
+      resp = $vault.with_retries(*$VAULT_RETRY_EXCEPTIONS) do |attempt, err|
+          Puppet.warn "[hiera-vault] Attempt #{attempt} - #{err}" if err
+          $vault.logical.__send__ method, path
+      end
       context.explain { "Resp from vault #{Time.now.to_f}"}
     rescue Vault::HTTPConnectionError => e
       raise Puppet::DataBinding::LookupError,
@@ -312,25 +347,9 @@ Puppet::Functions.create_function(:hiera_vault) do
       # Don't fail hard as the token might not have access to the path, but may later on
       context.explain { "Could not read secret #{path}: #{e.errors.join("\n").rstrip}" }
       return nil
+    ensure
+      $shutdown.call
     end
-    $shutdown.call # We might be done with vault
-    return resp
-  end
-
-  # Pretty generic read from vault
-  def vault_read(path, context)
-    begin
-      context.explain { "Calling vault #{Time.now.to_f}"}
-      resp = $vault.logical.read(path)
-      context.explain { "Resp from vault #{Time.now.to_f}"}
-    rescue Vault::HTTPConnectionError => e
-      raise Puppet::DataBinding::LookupError,
-        _("[hiera-vault] Vault connect problems: #{e}")
-    rescue Vault::HTTPError => e
-      # Don't fail hard as the token might not have access to the path, but may later on
-      context.explain { "Could not read secret #{path}: #{e.errors.join("\n").rstrip}" }
-    end
-    $shutdown.call # We might be done with vault
     return resp
   end
 
