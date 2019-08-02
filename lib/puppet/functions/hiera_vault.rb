@@ -16,7 +16,6 @@ Puppet::Functions.create_function(:hiera_vault) do
     raise Puppet::DataBinding::LookupError, "[hiera-vault] Must install debouncer gem to use hiera-vault backend"
   end
 
-
   dispatch :lookup_key do
     param 'Variant[String, Numeric]', :key
     param 'Hash', :options
@@ -134,7 +133,6 @@ Puppet::Functions.create_function(:hiera_vault) do
 
         begin
           secret = $vault.logical.read(secretpath)
-          #puts "Secret is: #{secret}"
         rescue Vault::HTTPConnectionError
           context.explain { "[hiera-vault] Could not connect to read secret: #{secretpath}" }
         rescue Vault::HTTPError => e
