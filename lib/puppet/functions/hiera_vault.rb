@@ -27,7 +27,6 @@ Puppet::Functions.create_function(:hiera_vault) do
   $shutdown = Debouncer.new(10) { $vault.shutdown() }
 
   def lookup_key(key, options, context)
-
     if confine_keys = options['confine_to_keys']
       raise ArgumentError, '[hiera-vault] confine_to_keys must be an array' unless confine_keys.is_a?(Array)
 
@@ -126,8 +125,11 @@ Puppet::Functions.create_function(:hiera_vault) do
       paths.each do |path|
 
         # Default to kv v1
-        secretpath = context.interpolate(File.join(mount, path, key))
-
+        data = 'data'
+        secretpath = context.interpolate(File.join(mount, data, path, key))
+        @k_val = key.split(%r{\.})[1]
+        key = key.split(%r{\.})[0]
+       
         context.explain { "[hiera-vault] Looking in path #{secretpath}" }
 
         begin
@@ -159,7 +161,7 @@ Puppet::Functions.create_function(:hiera_vault) do
         else
           # Turn secret's hash keys into strings allow for nested arrays and hashes
           # this enables support for create resources etc
-          new_answer = secret.data.inject({}) { |h, (k, v)| h[k.to_s] = stringify_keys v; h }
+          new_answer = secret.data[:data].inject({}) { |h, (k, v)| h[k.to_s] = stringify_keys v; h }
         end
 
         unless new_answer.nil?
