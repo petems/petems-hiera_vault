@@ -111,6 +111,7 @@ hierarchy:
         - '^.*_password$'
         - '^password.*'
       ssl_verify: false
+      kv_version: 2
       address: https://vault.foobar.com:8200
       token: <insert-your-vault-token-here>
       default_field: value
@@ -144,6 +145,11 @@ The following are optional configuration parameters supported in the `options` h
 
 `:ssl_verify`: Specify whether to verify SSL certificates (default: true)
 
+`kv_version`:  Since version 0.10.0 Vault supports kv secrets versioning so-called KV version 2. To configure module to work with version 2 secrets set value to 2. Make sure to enable versioning for all secrets in Vault:
+
+```vault kv enable-versioning secret/foo```
+
+NOTE: It is not possible to lookup through v1 and v2 secrets simultaneously. Use the only type.
 
 ### Debugging
 
