@@ -173,7 +173,7 @@ Puppet::Functions.create_function(:hiera_vault) do
       # Set the token expiry so we don't have to check every time
       if token_expiry.nil?
         token = $vault.with_retries(*$VAULT_RETRY_EXCEPTIONS) do |attempt, err|
-          Puppet.warn "[hiera-vault] Attempt #{attempt} - #{e}" if err
+          Puppet.warning "[hiera-vault] Attempt #{attempt} - #{e}" if err
           $vault.auth_token.lookup_self
         end
 
@@ -189,7 +189,7 @@ Puppet::Functions.create_function(:hiera_vault) do
       # and the token is renewable, do the thing
       if Time.now >= token_expiry - 10 and token.data[:renewable]
         token = $vault.with_retries(*$VAULT_RETRY_EXCEPTIONS) do |attempt, err|
-          Puppet.warn "[hiera-vault] Attempt #{attempt} - #{err}" if err
+          Puppet.warning "[hiera-vault] Attempt #{attempt} - #{err}" if err
           $vault.auth_token.renew_self
           $vault.auth_token.lookup_self
         end
@@ -208,7 +208,7 @@ Puppet::Functions.create_function(:hiera_vault) do
       # We can't talk to a sealed vault...Check every time
       unless seal_checked
         sealed = $vault.with_retries(*$VAULT_RETRY_EXCEPTIONS) do |attempt, err|
-          Puppet.warn "[hiera-vault] Attempt #{attempt} - #{err}" if err
+          Puppet.warning "[hiera-vault] Attempt #{attempt} - #{err}" if err
           $vault.sys.seal_status.sealed?
         end
         if sealed
@@ -336,7 +336,7 @@ Puppet::Functions.create_function(:hiera_vault) do
     begin
       context.explain { "Calling vault #{Time.now.to_f}"}
       resp = $vault.with_retries(*$VAULT_RETRY_EXCEPTIONS) do |attempt, err|
-          Puppet.warn "[hiera-vault] Attempt #{attempt} - #{err}" if err
+          Puppet.warning "[hiera-vault] Attempt #{attempt} - #{err}" if err
           $vault.logical.__send__ method, path
       end
       context.explain { "Resp from vault #{Time.now.to_f}"}
