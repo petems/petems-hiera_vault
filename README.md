@@ -16,11 +16,13 @@ For an example repo of it in action, check out the [hashicorp/webinar-vault-hier
 
 ### Requirements
 
-The `vault` gem must be installed and loadable from Puppet
+The `vault` and `debouncer` gems must be installed and loadable from Puppet
 
 ```
 # /opt/puppetlabs/puppet/bin/gem install vault
+# /opt/puppetlabs/puppet/bin/gem install debouncer
 # puppetserver gem install vault
+# puppetserver gem install debouncer
 ```
 
 On Puppetserver <= 5, you will need to switch Puppetserver to use the new JRuby 9K, as the gem requires Ruby 2+, and Puppetserver uses the 1.9.2 JRuby
@@ -115,7 +117,10 @@ hierarchy:
       token: <insert-your-vault-token-here>
       default_field: value
       mounts:
-        puppet:
+        some_secret:
+          - %{::trusted.certname}
+          - common
+        another_secret:
           - %{::trusted.certname}
           - common
 ```
@@ -167,8 +172,6 @@ Searching for "vault_notify"
 
 ### Vault Configuration
 
-NOTE: Currently only kv version 1 is supported by `hiera_vault`. Support for v2 will require some changes upstream in the `vault` gem.
-
 #### Mounts
 
 It is recomended to have a specific mount for your Puppet secrets, to avoid conflicts with an existing secrets backend.
@@ -176,14 +179,14 @@ It is recomended to have a specific mount for your Puppet secrets, to avoid conf
 From the command line:
 
 ```
-vault secrets enable -version=1 -path=puppet kv
+vault secrets enable -version=2 -path=some_secret kv
 ```
 
 We will then configure this in our hiera config:
 
 ```yaml
 mounts:
-  puppet:
+  some_secret:
     - %{::trusted.certname}
     - common
 ```
@@ -194,7 +197,15 @@ Then when a hiera call is made with lookup on a machine with the certname of `fo
 $cool_key = lookup({"name" => "cool_key", "default_value" => "No Vault Secret Found"})
 ```
 
-Secrets will then be looked up with the following path: `http://vault.example.com:8200/v1/puppet/foo.example.com/cool_key`
+Secrets will then be looked up with the following paths:
+* http://vault.foobar.com:8200/some_secret/foo.example.com/cool_key (for v1)
+* http://vault.foobar.com:8200/some_secret/foo.example.com/data/cool_key (for v2)
+* http://vault.foobar.com:8200/some_secret/common/cool_key (for v1)
+* http://vault.foobar.com:8200/some_secret/common/data/cool_key (for v2)
+* http://vault.foobar.com:8200/another_secret/foo.example.com/cool_key (for v1)
+* http://vault.foobar.com:8200/another_secret/foo.example.com/data/cool_key (for v2)
+* http://vault.foobar.com:8200/another_secret/common/cool_key (for v1)
+* http://vault.foobar.com:8200/another_secret/common/data/cool_key (for v2)
 
 ### Author
 
