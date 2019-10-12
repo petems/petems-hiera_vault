@@ -139,9 +139,11 @@ The following are optional configuration parameters supported in the `options` h
 
 `confine_to_keys:`: Only use this backend if the key matches one of the regexes in the array, to avoid constantly reaching out to Vault for every parameter lookup
 
-      confine_to_keys:
-        - "application.*"
-        - "apache::.*"
+```yaml
+confine_to_keys:
+  - "application.*"
+  - "apache::.*"
+```
 
 `strip_from_keys`: Patterns to strip from keys before lookup
 
