@@ -143,6 +143,13 @@ The following are optional configuration parameters supported in the `options` h
         - "application.*"
         - "apache::.*"
 
+`strip_from_keys`: Patterns to strip from keys before lookup
+
+```yaml
+strip_from_keys:
+  - "vault:"
+```
+
 `default_field:`: The default field within data to return. If not present, the lookup will be the full contents of the secret data.
 
 `mounts:`: The list of mounts you want to do lookups against. This is treated as the backend hiearchy for lookup. It is recomended you use [Trusted Facts](https://puppet.com/docs/puppet/5.3/lang_facts_and_builtin_vars.html#trusted-facts) within the hierachy to ensure lookups are restricted to the correct hierachy points. See [Mounts](####Mounts)
