@@ -133,7 +133,7 @@ Puppet::Functions.create_function(:hiera_vault) do
 
           secret = get_kv_v1(secretpath, key)
           if secret.nil?
-            secret = get_kv_v2(secretpath, key)
+            secret = get_kv_v2(mount, path, key)
           end
 
         rescue Vault::HTTPConnectionError
@@ -188,12 +188,15 @@ Puppet::Functions.create_function(:hiera_vault) do
     return res
   end
 
-  def get_kv_v2(secretpath, key)
-    res = $vault.logical.read(File.join(secretpath,'data',key))
-    if ! res.nil?
-      res=res.data[:data]
+  def get_kv_v2(mount, path, key)
+    v2_path = File.join(mount,'data',path).chomp("/")
+    begin
+      res_v2 = $vault.logical.read(v2_path).data[:data][:"#{key}"]
+    rescue
+      return $vault.logical.read(v2_path)
     end
-    return res
+    key_hash = {:value => res_v2}
+    return key_hash
   end
 
   # Stringify key:values so user sees expected results and nested objects
