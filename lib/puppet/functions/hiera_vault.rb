@@ -189,9 +189,9 @@ Puppet::Functions.create_function(:hiera_vault) do
   end
 
   def get_kv_v2(mount, path, key)
-    v2_path = File.join(mount,'data',path).chomp('/')
+    v2_path = File.join(mount,'data',path, key).chomp('/')
     begin
-      res = $vault.logical.read(v2_path).data[:data][:"#{key}"]
+      res = $vault.logical.read(v2_path).data[:data][:value]
     rescue
       return $vault.logical.read(v2_path)
     end
