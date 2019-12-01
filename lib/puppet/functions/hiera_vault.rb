@@ -181,7 +181,7 @@ Puppet::Functions.create_function(:hiera_vault) do
   end
 
   def get_kv_v1(secretpath, key)
-    res = $vault.logical.read(File.join(secretpath,key))
+    res = $vault.logical.read(File.join(secretpath, key))
     if ! res.nil?
       res=res.data
     end
@@ -189,11 +189,18 @@ Puppet::Functions.create_function(:hiera_vault) do
   end
 
   def get_kv_v2(mount, path, key)
-    v2_path = File.join(mount,'data',path, key).chomp('/')
     begin
-      res = $vault.logical.read(v2_path).data[:data][:value]
+      # secretengine -> mount+path / secret -> key / key -> default_field
+      secretpath = File.join(mount, path, 'data', key).chomp('/')
+      res = $vault.logical.read(secretpath).data[:data][:value]
     rescue
-      return $vault.logical.read(v2_path)
+      begin
+        # secretengine -> mount / secret -> path / key -> key
+        secretpath = File.join(mount, 'data', path, key).chomp('/')
+        res = $vault.logical.read(secretpath).data[:data][:value]
+      rescue
+        return nil
+      end
     end
     return { :value => res }
   end
