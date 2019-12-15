@@ -105,7 +105,7 @@ describe FakeFunction do
             vault_token_tmpfile.puts('not-valid-token')
             vault_token_tmpfile.close
             expect { function.lookup_key('test_key', vault_options.merge({'token' => vault_token_tmpfile.path}), context) }.
-              to output(/Could not read secret puppet\/common\/test_key: permission denied/).to_stdout
+              to output(/Could not read secret .+ permission denied/).to_stdout
           end
         end
 

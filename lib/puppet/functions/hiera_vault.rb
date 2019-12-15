@@ -131,9 +131,9 @@ Puppet::Functions.create_function(:hiera_vault) do
 
         begin
 
-          secret = get_kv_v1(secretpath, key)
+          secret = get_kv_v1(secretpath, key, context)
           if secret.nil?
-            secret = get_kv_v2(mount, path, key)
+            secret = get_kv_v2(mount, path, key, context)
           end
 
         rescue Vault::HTTPConnectionError
@@ -180,7 +180,8 @@ Puppet::Functions.create_function(:hiera_vault) do
     return answer
   end
 
-  def get_kv_v1(secretpath, key)
+  def get_kv_v1(secretpath, key, context)
+    context.explain { "[hiera-vault] Checking path: #{secretpath}" }
     res = $vault.logical.read(File.join(secretpath, key))
     if ! res.nil?
       res=res.data
@@ -188,21 +189,23 @@ Puppet::Functions.create_function(:hiera_vault) do
     return res
   end
 
-  def get_kv_v2(mount, path, key)
-    begin
-      # secretengine -> mount+path / secret -> key / key -> default_field
-      secretpath = File.join(mount, path, 'data', key).chomp('/')
-      res = $vault.logical.read(secretpath).data[:data][:value]
-    rescue
-      begin
-        # secretengine -> mount / secret -> path / key -> key
-        secretpath = File.join(mount, 'data', path, key).chomp('/')
-        res = $vault.logical.read(secretpath).data[:data][:value]
-      rescue
+  def get_kv_v2(mount, path, key, context)
+    # secretengine -> mount+path / secret -> key / key -> default_field
+    secretpath_mount_path_data_key = File.join(mount, path, 'data', key).chomp('/')
+    context.explain { "[hiera-vault] Checking path: #{secretpath_mount_path_data_key}" }
+    result = $vault.logical.read(secretpath_mount_path_data_key)
+    if result.respond_to?('data')
+      return result.data[:data]
+    else
+      secretpath_mount_data_path_key = File.join(mount, 'data', path, key).chomp('/')
+      context.explain { "[hiera-vault] Checking path: #{secretpath_mount_data_path_key}" }
+      result = $vault.logical.read(secretpath_mount_data_path_key)
+      if result.respond_to?('data')
+        return result.data[:data]
+      else
         return nil
       end
     end
-    return { :value => res }
   end
 
   # Stringify key:values so user sees expected results and nested objects

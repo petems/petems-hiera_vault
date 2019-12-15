@@ -30,7 +30,7 @@ describe FakeFunction do
       'address' => RSpec::VaultServer.address,
       'token' => RSpec::VaultServer.token,
       'mounts' => {
-        'puppet' => [
+        'puppetv2' => [
           'common'
         ]
       }
@@ -49,15 +49,15 @@ describe FakeFunction do
 
       context 'when vault is unsealed' do
         before(:context) do
-          vault_test_client.sys.mount('puppet', 'kv', 'puppet secrets')
-          vault_test_client.logical.write('puppet/common/test_key', value: 'default')
-          vault_test_client.logical.write('puppet/common/array_key', value: '["a", "b", "c"]')
-          vault_test_client.logical.write('puppet/common/hash_key', value: '{"a": 1, "b": 2, "c": 3}')
-          vault_test_client.logical.write('puppet/common/multiple_values_key', a: 1, b: 2, c: 3)
-          vault_test_client.logical.write('puppet/common/values_key', value: 123, a: 1, b: 2, c: 3)
-          vault_test_client.logical.write('puppet/common/broken_json_key', value: '[,')
-          vault_test_client.logical.write('puppet/common/confined_vault_key', value: 'find_me')
-          vault_test_client.logical.write('puppet/common/stripped_key', value: 'regexed_key')
+          vault_test_client.sys.mount('puppetv2', 'kv', 'puppet secrets v2', { "options" => {"version": "2" }})
+          vault_test_client.logical.write('puppetv2/data/common/test_key', { "data" => { value: 'default'} } )
+          vault_test_client.logical.write('puppetv2/data/common/array_key', { "data" => { value: '["a", "b", "c"]'} } )
+          vault_test_client.logical.write('puppetv2/data/common/hash_key', { "data" => { value: '{"a": 1, "b": 2, "c": 3}'} } )
+          vault_test_client.logical.write('puppetv2/data/common/multiple_values_key', { "data" => { a: 1, b: 2, c: 3} } )
+          vault_test_client.logical.write('puppetv2/data/common/values_key', { "data" => { value: 123, a: 1, b: 2, c: 3} } )
+          vault_test_client.logical.write('puppetv2/data/common/broken_json_key', { "data" => { value: '[,'} } )
+          vault_test_client.logical.write('puppetv2/data/common/confined_vault_key', { "data" => { value: 'find_me'} } )
+          vault_test_client.logical.write('puppetv2/data/common/stripped_key', { "data" => { value: 'regexed_key'} } )
         end
 
         context 'configuring vault' do
