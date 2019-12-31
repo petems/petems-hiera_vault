@@ -12,13 +12,13 @@ group :test do
 
   gem 'rake'
   gem 'puppet-lint'
-  gem 'rspec-puppet', :git => 'https://github.com/rodjek/rspec-puppet.git'
+  gem 'rspec-puppet'
   gem 'puppet-syntax'
   gem 'puppetlabs_spec_helper'
   gem 'simplecov'
   gem 'simplecov-console'
   gem 'metadata-json-lint'
-  gem 'vault'
+  gem 'vault', '>= 0.13.0'
   gem 'debouncer'
 end
 
@@ -29,4 +29,6 @@ group :development do
   gem 'github_changelog_generator'
   gem 'activesupport', '< 5'
   gem 'pdk'
+  gem 'pry'
+  gem 'rb-readline'
 end
