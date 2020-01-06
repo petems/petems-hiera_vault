@@ -133,7 +133,7 @@ The following mandatory Hiera 5 options must be set for each level of the hierar
 
 The following are optional configuration parameters supported in the `options` hash of the Hiera 5 config
 
-`address`: The address of the Vault server, also read as `ENV["VAULT_ADDR"]`
+`address`: The address of the Vault server or Vault Agent, also read as `ENV["VAULT_ADDR"]`. Note: Not currently compatible with unix domain sockets - you must use `http://` or `https://`
 
 `token`: The token to authenticate with Vault, also read as `ENV["VAULT_TOKEN"]` or a full path to the file with the token (eg. `/etc/vault_token.txt`). When bootstrapping, you can set this token as `IGNORE-VAULT` and the backend will be stubbed, which can be useful when bootstrapping.
 
