@@ -129,17 +129,24 @@ Puppet::Functions.create_function(:hiera_vault) do
 
         context.explain { "[hiera-vault] Looking in path #{secretpath} for #{key}" }
 
-        begin
+        secret = nil
 
-          secret = get_kv_v1(secretpath, key, context)
-          if secret.nil?
-            secret = get_kv_v2(mount, path, key, context)
+        [
+          [:v1, File.join(mount, path)],
+          [:v2, File.join(mount, path, 'data', key).chomp('/')],
+          [:v2, File.join(mount, 'data', path, key).chomp('/')],
+        ].each do |version_path|
+          begin
+            version, path = version_path[0], version_path[1]
+            context.explain { "[hiera-vault] Checking path: #{path}" }
+            response = $vault.logical.read(path)
+            next if response.nil?
+            secret = version == :v1 ? response.data : response.data[:data]
+          rescue Vault::HTTPConnectionError
+            context.explain { "[hiera-vault] Could not connect to read secret: #{secretpath}" }
+          rescue Vault::HTTPError => e
+            context.explain { "[hiera-vault] Could not read secret #{secretpath}: #{e.errors.join("\n").rstrip}" }
           end
-
-        rescue Vault::HTTPConnectionError
-          context.explain { "[hiera-vault] Could not connect to read secret: #{secretpath}" }
-        rescue Vault::HTTPError => e
-          context.explain { "[hiera-vault] Could not read secret #{secretpath}: #{e.errors.join("\n").rstrip}" }
         end
 
         next if secret.nil?
@@ -178,34 +185,6 @@ Puppet::Functions.create_function(:hiera_vault) do
     answer = context.not_found if answer.nil?
     $shutdown.call
     return answer
-  end
-
-  def get_kv_v1(secretpath, key, context)
-    context.explain { "[hiera-vault] Checking path: #{secretpath}" }
-    res = $vault.logical.read(File.join(secretpath, key))
-    if ! res.nil?
-      res=res.data
-    end
-    return res
-  end
-
-  def get_kv_v2(mount, path, key, context)
-    # secretengine -> mount+path / secret -> key / key -> default_field
-    secretpath_mount_path_data_key = File.join(mount, path, 'data', key).chomp('/')
-    context.explain { "[hiera-vault] Checking path: #{secretpath_mount_path_data_key}" }
-    result = $vault.logical.read(secretpath_mount_path_data_key)
-    if result.respond_to?('data')
-      return result.data[:data]
-    else
-      secretpath_mount_data_path_key = File.join(mount, 'data', path, key).chomp('/')
-      context.explain { "[hiera-vault] Checking path: #{secretpath_mount_data_path_key}" }
-      result = $vault.logical.read(secretpath_mount_data_path_key)
-      if result.respond_to?('data')
-        return result.data[:data]
-      else
-        return nil
-      end
-    end
   end
 
   # Stringify key:values so user sees expected results and nested objects
