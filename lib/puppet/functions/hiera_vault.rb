@@ -132,7 +132,7 @@ Puppet::Functions.create_function(:hiera_vault) do
         secret = nil
 
         [
-          [:v1, File.join(mount, path)],
+          [:v1, File.join(mount, path, key)],
           [:v2, File.join(mount, path, 'data', key).chomp('/')],
           [:v2, File.join(mount, 'data', path, key).chomp('/')],
         ].each do |version_path|
