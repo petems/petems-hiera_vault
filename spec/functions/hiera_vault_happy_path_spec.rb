@@ -45,11 +45,11 @@ describe FakeFunction do
   end
 
   describe '#lookup_key' do
-    context 'accessing vault' do
+    context 'accessing vault with v1 path' do
 
       context 'when vault is unsealed' do
         before(:context) do
-          vault_test_client.sys.mount('puppet', 'kv', 'puppet secrets')
+          vault_test_client.sys.mount('puppet', 'kv', 'puppet secrets v1', { "options" => {"version": "1" }})
           vault_test_client.logical.write('puppet/common/test_key', value: 'default')
           vault_test_client.logical.write('puppet/common/array_key', value: '["a", "b", "c"]')
           vault_test_client.logical.write('puppet/common/hash_key', value: '{"a": 1, "b": 2, "c": 3}')

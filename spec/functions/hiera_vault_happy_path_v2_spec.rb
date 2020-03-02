@@ -45,7 +45,7 @@ describe FakeFunction do
   end
 
   describe '#lookup_key' do
-    context 'accessing vault' do
+    context 'accessing vault with v2 path' do
 
       context 'when vault is unsealed' do
         before(:context) do
