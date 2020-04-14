@@ -1,4 +1,4 @@
-## hiera_vault : a vault data provider function (backend) for Hiera 5
+# hiera_vault : a vault data provider function (backend) for Hiera 5
 
 ### Description
 
@@ -29,7 +29,7 @@ On Puppetserver <= 5, you will need to switch Puppetserver to use the new JRuby 
 
 Some example Puppetcode to do so:
 
-```
+```puppet
 ini_setting { "Change jruby to 9k":
   ensure            => present,
   setting           => 'JRUBY_JAR',
@@ -157,7 +157,6 @@ strip_from_keys:
 `mounts:`: The list of mounts you want to do lookups against. This is treated as the backend hiearchy for lookup. It is recomended you use [Trusted Facts](https://puppet.com/docs/puppet/5.3/lang_facts_and_builtin_vars.html#trusted-facts) within the hierachy to ensure lookups are restricted to the correct hierachy points. See [Mounts](####Mounts)
 
 `:ssl_verify`: Specify whether to verify SSL certificates (default: true)
-
 
 ### Debugging
 
