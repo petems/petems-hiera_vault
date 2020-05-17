@@ -1,6 +1,6 @@
 {
   "name": "petems-hiera_vault",
-  "version": "0.4.3",
+  "version": "0.4.4",
   "author": "petems",
   "summary": "Hiera 5 backend to query data lookups from vault",
   "license": "Apache-2.0",
