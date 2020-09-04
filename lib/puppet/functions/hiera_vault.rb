@@ -50,10 +50,6 @@ Puppet::Functions.create_function(:hiera_vault) do
       end
     end
 
-    if ENV['VAULT_TOKEN'] == 'IGNORE-VAULT'
-      return context.not_found
-    end
-
     result = vault_get(key, options, context)
 
     return result
@@ -71,6 +67,7 @@ Puppet::Functions.create_function(:hiera_vault) do
 
     begin
       vault = Vault::Client.new
+      return context.not_found if vault.token == 'IGNORE-VAULT'
 
       vault.configure do |config|
         config.address = options['address'] unless options['address'].nil?
