@@ -15,6 +15,10 @@ before_install:
   - mkdir -p ~/bin
   - mv vault ~/bin
   - export PATH="~/bin:$PATH"
+  - gem install bundler:2.0.1
+
+script:
+  - "bundle exec rake spec"
 
 branches:
   only:
