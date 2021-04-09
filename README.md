@@ -12,15 +12,15 @@ For an example repo of it in action, check out the [hashicorp/webinar-vault-hier
 
 ### Compatibility
 
-* This moduel is only compatible with Hiera 5 (ships with Puppet 4.9+) and Vault KV engine version 2 (Vault 0.10+)
+* This module is only compatible with Hiera 5 (ships with Puppet 4.9+) and Vault KV engine version 2 (Vault 0.10+)
 
 ### Requirements
 
 The `vault` and `debouncer` gems must be installed and loadable from Puppet
 
 ```
-# /opt/puppetlabs/puppet/bin/gem install vault
-# /opt/puppetlabs/puppet/bin/gem install debouncer
+# /opt/puppetlabs/puppet/bin/gem install --user-install vault
+# /opt/puppetlabs/puppet/bin/gem install --user-install debouncer
 # puppetserver gem install vault
 # puppetserver gem install debouncer
 ```
