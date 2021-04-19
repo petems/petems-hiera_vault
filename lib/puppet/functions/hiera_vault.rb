@@ -15,6 +15,11 @@ Puppet::Functions.create_function(:hiera_vault) do
   rescue LoadError => e
     raise Puppet::DataBinding::LookupError, "[hiera-vault] Must install debouncer gem to use hiera-vault backend"
   end
+  begin
+    require 'thread'
+  rescue LoadError => e
+    raise Puppet::DataBinding::LookupError, "[hiera-vault] Must install thread gem to use hiera-vault backend"
+  end
 
 
   dispatch :lookup_key do
@@ -23,8 +28,14 @@ Puppet::Functions.create_function(:hiera_vault) do
     param 'Puppet::LookupContext', :context
   end
 
+  $hiera_vault_mutex = Mutex.new
   $vault    = Vault::Client.new
-  $shutdown = Debouncer.new(10) { $vault.shutdown() }
+  $shutdown = Debouncer.new(10) {
+    $hiera_vault_mutex.synchronize do
+      $vault.shutdown()
+      $vault = nil
+    end
+  }
 
   def vault_token(options)
     token = nil
@@ -98,100 +109,107 @@ Puppet::Functions.create_function(:hiera_vault) do
       raise ArgumentError, "[hiera-vault] invalid value for default_field_behavior: '#{options['default_field_behavior']}', should be one of 'ignore','only'"
     end
 
-    begin
-      $vault.configure do |config|
-        config.address = options['address'] unless options['address'].nil?
+    $hiera_vault_mutex.synchronize do
+      # If our Vault client has got cleaned up by a previous shutdown call, reinstate it
+      if $vault.nil?
+        $vault = Vault::Client.new
+      end
+
+      begin
+        $vault.configure do |config|
+          config.address = options['address'] unless options['address'].nil?
         config.token = vault_token(options)
-        config.ssl_pem_file = options['ssl_pem_file'] unless options['ssl_pem_file'].nil?
-        config.ssl_verify = options['ssl_verify'] unless options['ssl_verify'].nil?
-        config.ssl_ca_cert = options['ssl_ca_cert'] if config.respond_to? :ssl_ca_cert
-        config.ssl_ca_path = options['ssl_ca_path'] if config.respond_to? :ssl_ca_path
-        config.ssl_ciphers = options['ssl_ciphers'] if config.respond_to? :ssl_ciphers
-      end
-
-      if $vault.sys.seal_status.sealed?
-        raise Puppet::DataBinding::LookupError, "[hiera-vault] vault is sealed"
-      end
-
-      context.explain { "[hiera-vault] Client configured to connect to #{$vault.address}" }
-    rescue StandardError => e
-      $shutdown.call
-      $vault = nil
-      raise Puppet::DataBinding::LookupError, "[hiera-vault] Skipping backend. Configuration error: #{e}"
-    end
-
-    answer = nil
-
-    if options['mounts']['generic']
-      raise ArgumentError, "[hiera-vault] generic is no longer valid - change to kv"
-    else
-      kv_mounts = options['mounts'].dup
-    end
-
-    # Only kv mounts supported so far
-    kv_mounts.each_pair do |mount, paths|
-      paths.each do |path|
-
-        secretpath = context.interpolate(File.join(mount, path))
-
-        context.explain { "[hiera-vault] Looking in path #{secretpath} for #{key}" }
-
-        secret = nil
-
-        [
-          [:v1, File.join(mount, path, key)],
-          [:v2, File.join(mount, path, 'data', key).chomp('/')],
-          [:v2, File.join(mount, 'data', path, key).chomp('/')],
-        ].each do |version_path|
-          begin
-            version, path = version_path[0], version_path[1]
-            context.explain { "[hiera-vault] Checking path: #{path}" }
-            response = $vault.logical.read(path)
-            next if response.nil?
-            secret = version == :v1 ? response.data : response.data[:data]
-          rescue Vault::HTTPConnectionError
-            context.explain { "[hiera-vault] Could not connect to read secret: #{secretpath}" }
-          rescue Vault::HTTPError => e
-            context.explain { "[hiera-vault] Could not read secret #{secretpath}: #{e.errors.join("\n").rstrip}" }
-          end
+          config.ssl_pem_file = options['ssl_pem_file'] unless options['ssl_pem_file'].nil?
+          config.ssl_verify = options['ssl_verify'] unless options['ssl_verify'].nil?
+          config.ssl_ca_cert = options['ssl_ca_cert'] if config.respond_to? :ssl_ca_cert
+          config.ssl_ca_path = options['ssl_ca_path'] if config.respond_to? :ssl_ca_path
+          config.ssl_ciphers = options['ssl_ciphers'] if config.respond_to? :ssl_ciphers
         end
 
-        next if secret.nil?
+        if $vault.sys.seal_status.sealed?
+          raise Puppet::DataBinding::LookupError, "[hiera-vault] vault is sealed"
+        end
 
-        context.explain { "[hiera-vault] Read secret: #{key}" }
-        if (options['default_field'] and ( ['ignore', nil].include?(options['default_field_behavior']) ||
-           (secret.has_key?(options['default_field'].to_sym) && secret.length == 1) ) )
+        context.explain { "[hiera-vault] Client configured to connect to #{$vault.address}" }
+      rescue StandardError => e
+        $shutdown.call
+        $vault = nil
+        raise Puppet::DataBinding::LookupError, "[hiera-vault] Skipping backend. Configuration error: #{e}"
+      end
 
-          return nil if ! secret.has_key?(options['default_field'].to_sym)
+      answer = nil
 
-          new_answer = secret[options['default_field'].to_sym]
+      if options['mounts']['generic']
+        raise ArgumentError, "[hiera-vault] generic is no longer valid - change to kv"
+      else
+        kv_mounts = options['mounts'].dup
+      end
 
-          if options['default_field_parse'] == 'json'
+      # Only kv mounts supported so far
+      kv_mounts.each_pair do |mount, paths|
+        paths.each do |path|
+
+          secretpath = context.interpolate(File.join(mount, path))
+
+          context.explain { "[hiera-vault] Looking in path #{secretpath} for #{key}" }
+
+          secret = nil
+
+          [
+            [:v1, File.join(mount, path, key)],
+            [:v2, File.join(mount, path, 'data', key).chomp('/')],
+            [:v2, File.join(mount, 'data', path, key).chomp('/')],
+          ].each do |version_path|
             begin
-              new_answer = JSON.parse(new_answer, :quirks_mode => true)
-            rescue JSON::ParserError => e
-              context.explain { "[hiera-vault] Could not parse string as json: #{e}" }
+              version, path = version_path[0], version_path[1]
+              context.explain { "[hiera-vault] Checking path: #{path}" }
+              response = $vault.logical.read(path)
+              next if response.nil?
+              secret = version == :v1 ? response.data : response.data[:data]
+            rescue Vault::HTTPConnectionError
+              context.explain { "[hiera-vault] Could not connect to read secret: #{secretpath}" }
+            rescue Vault::HTTPError => e
+              context.explain { "[hiera-vault] Could not read secret #{secretpath}: #{e.errors.join("\n").rstrip}" }
             end
           end
 
-        else
-          # Turn secret's hash keys into strings allow for nested arrays and hashes
-          # this enables support for create resources etc
-          new_answer = secret.inject({}) { |h, (k, v)| h[k.to_s] = stringify_keys v; h }
+          next if secret.nil?
+
+          context.explain { "[hiera-vault] Read secret: #{key}" }
+          if (options['default_field'] and ( ['ignore', nil].include?(options['default_field_behavior']) ||
+             (secret.has_key?(options['default_field'].to_sym) && secret.length == 1) ) )
+
+            return nil if ! secret.has_key?(options['default_field'].to_sym)
+
+            new_answer = secret[options['default_field'].to_sym]
+
+            if options['default_field_parse'] == 'json'
+              begin
+                new_answer = JSON.parse(new_answer, :quirks_mode => true)
+              rescue JSON::ParserError => e
+                context.explain { "[hiera-vault] Could not parse string as json: #{e}" }
+              end
+            end
+
+          else
+            # Turn secret's hash keys into strings allow for nested arrays and hashes
+            # this enables support for create resources etc
+            new_answer = secret.inject({}) { |h, (k, v)| h[k.to_s] = stringify_keys v; h }
+          end
+
+          unless new_answer.nil?
+            answer = new_answer
+            break
+          end
         end
 
-        unless new_answer.nil?
-          answer = new_answer
-          break
-        end
+        break unless answer.nil?
       end
 
-      break unless answer.nil?
+      answer = context.not_found if answer.nil?
+      $shutdown.call
+      return answer
     end
-
-    answer = context.not_found if answer.nil?
-    $shutdown.call
-    return answer
   end
 
   # Stringify key:values so user sees expected results and nested objects
