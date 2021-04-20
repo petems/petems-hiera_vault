@@ -26,6 +26,19 @@ Puppet::Functions.create_function(:hiera_vault) do
   $vault    = Vault::Client.new
   $shutdown = Debouncer.new(10) { $vault.shutdown() }
 
+  def vault_token(options)
+    token = nil
+
+    token = ENV['VAULT_TOKEN'] unless ENV['VAULT_TOKEN'].nil?
+    token ||= options['token'] unless options['token'].nil?
+
+    if token.to_s.start_with?('/') and File.exist?(token)
+      token = File.read(token).strip.chomp
+    end
+
+    token
+  end
+
   def lookup_key(key, options, context)
 
     if confine_keys = options['confine_to_keys']
@@ -53,12 +66,12 @@ Puppet::Functions.create_function(:hiera_vault) do
       end
     end
 
-    if (ENV['VAULT_TOKEN'] == 'IGNORE-VAULT' || options['token'] == 'IGNORE-VAULT')
+    if vault_token(options) == 'IGNORE-VAULT'
       context.explain { "[hiera-vault] token set to IGNORE-VAULT - Quitting early" }
       return context.not_found
     end
 
-    if ENV['VAULT_TOKEN'].nil? && options['token'].nil?
+    if vault_token(options).nil?
       raise ArgumentError, '[hiera-vault] no token set in options and no token in VAULT_TOKEN'
     end
 
@@ -88,13 +101,7 @@ Puppet::Functions.create_function(:hiera_vault) do
     begin
       $vault.configure do |config|
         config.address = options['address'] unless options['address'].nil?
-        unless options['token'].nil?
-          if options['token'].start_with?('/') and File.exist?(options['token'])
-            config.token = File.read(options['token']).strip.chomp
-          else
-            config.token = options['token']
-          end
-        end
+        config.token = vault_token(options)
         config.ssl_pem_file = options['ssl_pem_file'] unless options['ssl_pem_file'].nil?
         config.ssl_verify = options['ssl_verify'] unless options['ssl_verify'].nil?
         config.ssl_ca_cert = options['ssl_ca_cert'] if config.respond_to? :ssl_ca_cert
