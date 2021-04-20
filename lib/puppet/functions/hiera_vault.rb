@@ -29,11 +29,11 @@ Puppet::Functions.create_function(:hiera_vault) do
   end
 
   $hiera_vault_mutex = Mutex.new
-  $vault    = Vault::Client.new
-  $shutdown = Debouncer.new(10) {
+  $hiera_vault_client = Vault::Client.new
+  $hiera_vault_shutdown = Debouncer.new(10) {
     $hiera_vault_mutex.synchronize do
-      $vault.shutdown()
-      $vault = nil
+      $hiera_vault_client.shutdown()
+      $hiera_vault_client = nil
     end
   }
 
@@ -111,12 +111,12 @@ Puppet::Functions.create_function(:hiera_vault) do
 
     $hiera_vault_mutex.synchronize do
       # If our Vault client has got cleaned up by a previous shutdown call, reinstate it
-      if $vault.nil?
-        $vault = Vault::Client.new
+      if $hiera_vault_client.nil?
+        $hiera_vault_client = Vault::Client.new
       end
 
       begin
-        $vault.configure do |config|
+        $hiera_vault_client.configure do |config|
           config.address = options['address'] unless options['address'].nil?
         config.token = vault_token(options)
           config.ssl_pem_file = options['ssl_pem_file'] unless options['ssl_pem_file'].nil?
@@ -126,14 +126,14 @@ Puppet::Functions.create_function(:hiera_vault) do
           config.ssl_ciphers = options['ssl_ciphers'] if config.respond_to? :ssl_ciphers
         end
 
-        if $vault.sys.seal_status.sealed?
+        if $hiera_vault_client.sys.seal_status.sealed?
           raise Puppet::DataBinding::LookupError, "[hiera-vault] vault is sealed"
         end
 
-        context.explain { "[hiera-vault] Client configured to connect to #{$vault.address}" }
+        context.explain { "[hiera-vault] Client configured to connect to #{$hiera_vault_client.address}" }
       rescue StandardError => e
-        $shutdown.call
-        $vault = nil
+        $hiera_vault_shutdown.call
+        $hiera_vault_client = nil
         raise Puppet::DataBinding::LookupError, "[hiera-vault] Skipping backend. Configuration error: #{e}"
       end
 
@@ -163,7 +163,7 @@ Puppet::Functions.create_function(:hiera_vault) do
             begin
               version, path = version_path[0], version_path[1]
               context.explain { "[hiera-vault] Checking path: #{path}" }
-              response = $vault.logical.read(path)
+              response = $hiera_vault_client.logical.read(path)
               next if response.nil?
               secret = version == :v1 ? response.data : response.data[:data]
             rescue Vault::HTTPConnectionError
@@ -207,7 +207,7 @@ Puppet::Functions.create_function(:hiera_vault) do
       end
 
       answer = context.not_found if answer.nil?
-      $shutdown.call
+      $hiera_vault_shutdown.call
       return answer
     end
   end
