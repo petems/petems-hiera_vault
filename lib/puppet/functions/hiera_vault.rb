@@ -74,7 +74,7 @@ Puppet::Functions.create_function(:hiera_vault) do
     end
 
     if vault_token(options).nil? && !options.key?("authentication")
-      raise ArgumentError, '[hiera-vault] no token set in options and no token in VAULT_TOKEN'
+      raise ArgumentError, '[hiera-vault] no token set in options, no token in VAULT_TOKEN and no special authentication configured'
     end
 
     result = vault_get(key, options, context)
@@ -110,8 +110,10 @@ Puppet::Functions.create_function(:hiera_vault) do
         config.ssl_ciphers = options['ssl_ciphers'] if config.respond_to? :ssl_ciphers
 
         if options.key?("authentication")
-          authenticate(options['authentication'], $vault)
+          context.explain { "[hiera-vault] Using #{options['authentication']['type']} authentication" }
+          authenticate(options['authentication'], $vault, context)
         else
+          context.explain { "[hiera-vault] Using token authentication" }
           config.token = vault_token(options)
         end
       end
