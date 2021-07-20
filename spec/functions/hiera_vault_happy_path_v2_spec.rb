@@ -58,6 +58,7 @@ describe FakeFunction do
           vault_test_client.logical.write('puppetv2/data/common/broken_json_key', { "data" => { value: '[,'} } )
           vault_test_client.logical.write('puppetv2/data/common/confined_vault_key', { "data" => { value: 'find_me'} } )
           vault_test_client.logical.write('puppetv2/data/common/stripped_key', { "data" => { value: 'regexed_key'} } )
+          vault_test_client.logical.write('puppetv2/data/common/complex_structure_key', { "data" => { hash: {a: 1}, array: [1, 2], hash_with_array: {a: [1, 2]}, array_with_hash: [{a: 1}, {b: 2}]} } )
         end
 
         context 'configuring vault' do
@@ -128,6 +129,11 @@ describe FakeFunction do
           it 'should return a hash lacking a default field' do
             expect(function.lookup_key('multiple_values_key', vault_options, context))
               .to include('a' => 1, 'b' => 2, 'c' => 3)
+          end
+
+          it 'should return a complex object' do
+            expect(function.lookup_key('complex_structure_key', vault_options, context))
+              .to include("hash" => {"a" => 1}, "array" => [1, 2], "hash_with_array" => {"a" => [1, 2]}, "array_with_hash" => [{"a" => 1}, {"b" => 2}])
           end
 
           it 'should return an array parsed from json' do
