@@ -137,11 +137,15 @@ Puppet::Functions.create_function(:hiera_vault) do
 
         secret = nil
 
-        [
+        paths = [
           [:v1, File.join(mount, path, key)],
           [:v2, File.join(mount, path, 'data', key).chomp('/')],
           [:v2, File.join(mount, 'data', path, key).chomp('/')],
-        ].each do |version_path|
+        ]
+
+        paths << [:v2, File.join(mount, 'data', key).chomp('/')] if key.start_with?(path)
+
+        paths.each do |version_path|
           begin
             version, path = version_path[0], version_path[1]
             context.explain { "[hiera-vault] Checking path: #{path}" }

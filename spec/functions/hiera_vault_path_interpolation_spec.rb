@@ -35,7 +35,7 @@ describe FakeFunction do
       'mounts' => {
         VAULT_PATH => [
           'common',
-          'roles/rproxy,api'
+          'rproxy,api'
         ]
       }
     }
@@ -54,8 +54,9 @@ describe FakeFunction do
         before(:context) do
           vault_test_client.sys.mount(VAULT_PATH, 'kv', 'puppet secrets v2', { "options" => {"version": "2" }})
           vault_test_client.logical.write("#{VAULT_PATH}/data/common/test_key", { "data" => { value: 'default'} } )
-          vault_test_client.logical.write("#{VAULT_PATH}/data/roles/rproxy/ssl", { "data" => { value: 'ssl'} } )
-          vault_test_client.logical.write("#{VAULT_PATH}/data/roles/api/oauth", { "data" => { value: 'oauth'} } )
+          vault_test_client.logical.write("#{VAULT_PATH}/data/rproxy/ssl", { "data" => { value: 'ssl'} } )
+          vault_test_client.logical.write("#{VAULT_PATH}/data/api/oauth", { "data" => { value: 'oauth'} } )
+          vault_test_client.logical.write("#{VAULT_PATH}/data/api", { "data" => { value: 'api_specific'} } )
         end
 
         context 'reading secrets' do
@@ -66,6 +67,16 @@ describe FakeFunction do
 
           it 'returns key from second option' do
             expect(function.lookup_key('oauth', vault_options, context))
+              .to include('value' => 'oauth')
+          end
+
+          it 'returns key from second option without leaf node' do
+            expect(function.lookup_key('api', vault_options, context))
+              .to include('value' => 'api_specific')
+          end
+
+          it 'returns key from second option with full path to node' do
+            expect(function.lookup_key('api/oauth', vault_options, context))
               .to include('value' => 'oauth')
           end
         end
