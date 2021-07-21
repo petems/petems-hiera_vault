@@ -137,13 +137,17 @@ Puppet::Functions.create_function(:hiera_vault) do
 
         secret = nil
 
-        paths = [
-          [:v1, File.join(mount, path, key)],
-          [:v2, File.join(mount, path, 'data', key).chomp('/')],
-          [:v2, File.join(mount, 'data', path, key).chomp('/')],
-        ]
+        paths = []
 
-        paths << [:v2, File.join(mount, 'data', key).chomp('/')] if key.start_with?(path)
+        if options.fetch("v2_guess_mount", true)
+          paths << [:v2, File.join(mount, path, 'data', key).chomp('/')]
+          paths << [:v2, File.join(mount, 'data', path, key).chomp('/')]
+        else
+          paths << [:v2, File.join(mount, path, key).chomp('/')]
+          paths << [:v2, File.join(mount, key).chomp('/')] if key.start_with?(path)
+        end
+
+        paths << [:v1, File.join(mount, path, key)] if options.fetch("v1_lookup", true)
 
         paths.each do |version_path|
           begin

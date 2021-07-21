@@ -32,8 +32,10 @@ describe FakeFunction do
     {
       'address' => RSpec::VaultServer.address,
       'token' => RSpec::VaultServer.token,
+      'v2_guess_mount' => false,
+      'v1_lookup' => false,
       'mounts' => {
-        VAULT_PATH => [
+        VAULT_PATH + "/data" => [
           'common',
           'rproxy,api'
         ]
@@ -53,10 +55,10 @@ describe FakeFunction do
       context 'when vault is unsealed' do
         before(:context) do
           vault_test_client.sys.mount(VAULT_PATH, 'kv', 'puppet secrets v2', { "options" => {"version": "2" }})
-          vault_test_client.logical.write("#{VAULT_PATH}/data/common/test_key", { "data" => { value: 'default'} } )
-          vault_test_client.logical.write("#{VAULT_PATH}/data/rproxy/ssl", { "data" => { value: 'ssl'} } )
-          vault_test_client.logical.write("#{VAULT_PATH}/data/api/oauth", { "data" => { value: 'oauth'} } )
-          vault_test_client.logical.write("#{VAULT_PATH}/data/api", { "data" => { value: 'api_specific'} } )
+          vault_test_client.kv(VAULT_PATH).write("common/test_key", { value: 'default'} )
+          vault_test_client.kv(VAULT_PATH).write("rproxy/ssl", { value: 'ssl'} )
+          vault_test_client.kv(VAULT_PATH).write("api/oauth", { value: 'oauth'} )
+          vault_test_client.kv(VAULT_PATH).write("api", { value: 'api_specific'}  )
         end
 
         context 'reading secrets' do
