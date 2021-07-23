@@ -12,6 +12,7 @@ group :test do
 
   gem 'rake'
   gem 'puppet-lint'
+  gem 'rspec'
   gem 'rspec-puppet'
   gem 'puppet-syntax'
   gem 'puppetlabs_spec_helper'

@@ -115,10 +115,11 @@ Puppet::Functions.create_function(:hiera_vault) do
         $hiera_vault_client = Vault::Client.new
       end
 
+
       begin
         $hiera_vault_client.configure do |config|
           config.address = options['address'] unless options['address'].nil?
-        config.token = vault_token(options)
+          config.token = vault_token(options)
           config.ssl_pem_file = options['ssl_pem_file'] unless options['ssl_pem_file'].nil?
           config.ssl_verify = options['ssl_verify'] unless options['ssl_verify'].nil?
           config.ssl_ca_cert = options['ssl_ca_cert'] if config.respond_to? :ssl_ca_cert
@@ -147,19 +148,26 @@ Puppet::Functions.create_function(:hiera_vault) do
 
       # Only kv mounts supported so far
       kv_mounts.each_pair do |mount, paths|
-        paths.each do |path|
-
+        interpolate(context, paths).each do |path|
           secretpath = context.interpolate(File.join(mount, path))
 
           context.explain { "[hiera-vault] Looking in path #{secretpath} for #{key}" }
 
           secret = nil
 
-          [
-            [:v1, File.join(mount, path, key)],
-            [:v2, File.join(mount, path, 'data', key).chomp('/')],
-            [:v2, File.join(mount, 'data', path, key).chomp('/')],
-          ].each do |version_path|
+          paths = []
+
+          if options.fetch("v2_guess_mount", true)
+            paths << [:v2, File.join(mount, path, 'data', key).chomp('/')]
+            paths << [:v2, File.join(mount, 'data', path, key).chomp('/')]
+          else
+            paths << [:v2, File.join(mount, path, key).chomp('/')]
+            paths << [:v2, File.join(mount, key).chomp('/')] if key.start_with?(path)
+          end
+
+          paths << [:v1, File.join(mount, path, key)] if options.fetch("v1_lookup", true)
+
+          paths.each do |version_path|
             begin
               version, path = version_path[0], version_path[1]
               context.explain { "[hiera-vault] Checking path: #{path}" }
@@ -177,21 +185,21 @@ Puppet::Functions.create_function(:hiera_vault) do
 
           context.explain { "[hiera-vault] Read secret: #{key}" }
           if (options['default_field'] and ( ['ignore', nil].include?(options['default_field_behavior']) ||
-             (secret.has_key?(options['default_field'].to_sym) && secret.length == 1) ) )
+          (secret.has_key?(options['default_field'].to_sym) && secret.length == 1) ) )
 
-            return nil if ! secret.has_key?(options['default_field'].to_sym)
+          return nil if ! secret.has_key?(options['default_field'].to_sym)
 
-            new_answer = secret[options['default_field'].to_sym]
+          new_answer = secret[options['default_field'].to_sym]
 
-            if options['default_field_parse'] == 'json'
-              begin
-                new_answer = JSON.parse(new_answer, :quirks_mode => true)
-              rescue JSON::ParserError => e
-                context.explain { "[hiera-vault] Could not parse string as json: #{e}" }
-              end
+          if options['default_field_parse'] == 'json'
+            begin
+              new_answer = JSON.parse(new_answer, :quirks_mode => true)
+            rescue JSON::ParserError => e
+              context.explain { "[hiera-vault] Could not parse string as json: #{e}" }
             end
+          end
 
-          else
+        else
             # Turn secret's hash keys into strings allow for nested arrays and hashes
             # this enables support for create resources etc
             new_answer = secret.inject({}) { |h, (k, v)| h[k.to_s] = stringify_keys v; h }
@@ -226,5 +234,32 @@ Puppet::Functions.create_function(:hiera_vault) do
     else
       value
     end
+  end
+
+  def interpolate(context, paths)
+    allowed_paths = []
+    paths.each do |path|
+      path = context.interpolate(path)
+      # TODO: Unify usage of '/' - File.join seems to be a mistake, since it won't work on Windows
+      # secret/puppet/scope1,scope2 => [[secret], [puppet], [scope1, scope2]]
+      segments = path.split('/').map { |segment| segment.split(',') }
+      allowed_paths += build_paths(segments) unless segments.empty?
+    end
+    allowed_paths
+  end
+
+  # [[secret], [puppet], [scope1, scope2]] => ['secret/puppet/scope1', 'secret/puppet/scope2']
+  def build_paths(segments)
+    paths = [[]]
+    segments.each do |segment|
+      p = paths.dup
+      paths.clear
+      segment.each do |option|
+        p.each do |path|
+          paths << path + [option]
+        end
+      end
+    end
+    paths.map { |p| File.join(*p) }
   end
 end
