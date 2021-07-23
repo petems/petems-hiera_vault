@@ -1,0 +1,20 @@
+name: Test
+on: [push, pull_request]
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    env:
+      BUNDLE_WITHOUT: development
+    steps:
+      - name: Install vault
+        run: |
+          curl -fsSL https://apt.releases.hashicorp.com/gpg | sudo apt-key add -
+          sudo apt-add-repository "deb [arch=amd64] https://apt.releases.hashicorp.com $(lsb_release -cs) main"
+          sudo apt-get update && sudo apt-get install vault
+      - uses: actions/checkout@v2
+      - uses: ruby/setup-ruby@v1
+        with:
+          # Can't use jruby-9.1.17.0 due to issues with bundler 2.X: https://github.com/ruby/setup-ruby/issues/108
+          ruby-version: jruby-9.2.9.0
+          bundler-cache: true # runs 'bundle install' and caches installed gems automatically
+      - run: bundle exec rspec

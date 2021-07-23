@@ -1,7 +1,6 @@
 # frozen_string_literal: true
 
 require 'rspec-puppet'
-require 'puppetlabs_spec_helper/module_spec_helper'
 
 require 'simplecov'
 require 'simplecov-console'
@@ -54,3 +53,5 @@ RSpec.configure do |config|
     config.warnings = false
   end
 end
+
+require 'puppetlabs_spec_helper/module_spec_helper'
