@@ -119,7 +119,7 @@ Puppet::Functions.create_function(:hiera_vault) do
 
 
       begin
-        $vault.configure do |config|
+        $hiera_vault_client.configure do |config|
           config.address = options['address'] unless options['address'].nil?
           config.ssl_pem_file = options['ssl_pem_file'] unless options['ssl_pem_file'].nil?
           config.ssl_verify = options['ssl_verify'] unless options['ssl_verify'].nil?
@@ -129,7 +129,7 @@ Puppet::Functions.create_function(:hiera_vault) do
 
           if options.key?("authentication")
             context.explain { "[hiera-vault] Using #{options['authentication']['type']} authentication" }
-            authenticate(options['authentication'], $vault, context)
+            authenticate(options['authentication'], $hiera_vault_client, context)
           else
             context.explain { "[hiera-vault] Using token authentication" }
             config.token = vault_token(options)
