@@ -12,7 +12,7 @@ For an example repo of it in action, check out the [hashicorp/webinar-vault-hier
 
 ### Compatibility
 
-* This module is only compatible with Hiera 5 (ships with Puppet 4.9+) and Vault KV engine version 2 (Vault 0.10+)
+- This module is only compatible with Hiera 5 (ships with Puppet 4.9+) and Vault KV engine version 2 (Vault 0.10+)
 
 ### Requirements
 
@@ -101,7 +101,6 @@ The following is an example Hiera 5 hiera.yaml configuration for use with hiera-
 
 ```yaml
 ---
-
 version: 5
 
 hierarchy:
@@ -109,9 +108,9 @@ hierarchy:
     lookup_key: hiera_vault
     options:
       confine_to_keys:
-        - '^vault_.*'
-        - '^.*_password$'
-        - '^password.*'
+        - "^vault_.*"
+        - "^.*_password$"
+        - "^password.*"
       ssl_verify: false
       address: https://vault.foobar.com:8200
       token: <insert-your-vault-token-here>
@@ -154,9 +153,13 @@ strip_from_keys:
 
 `default_field:`: The default field within data to return. If not present, the lookup will be the full contents of the secret data.
 
-`mounts:`: The list of mounts you want to do lookups against. This is treated as the backend hiearchy for lookup. It is recomended you use [Trusted Facts](https://puppet.com/docs/puppet/5.3/lang_facts_and_builtin_vars.html#trusted-facts) within the hierachy to ensure lookups are restricted to the correct hierachy points. See [Mounts](####Mounts)
+`mounts:`: The list of mounts you want to do lookups against. This is treated as the backend hiearchy for lookup. It is recomended you use [Trusted Facts](https://puppet.com/docs/puppet/5.3/lang_facts_and_builtin_vars.html#trusted-facts) within the hierachy to ensure lookups are restricted to the correct hierachy points. See [Mounts](#mounts).
 
 `:ssl_verify`: Specify whether to verify SSL certificates (default: true)
+
+`v1_lookup`: whether to lookup within kv v1 hierarchy (default `true`) - disable if you only use kv v2 :) See [Less lookups](#less-lookups).
+
+`v2_guess_mount`: whether to try to guess mount for KV v2 (default `true`) - add `data` after your mount and disable to minimize amount of misses. See [Less lookups](#less-lookups).
 
 ### Debugging
 
@@ -206,16 +209,88 @@ $cool_key = lookup({"name" => "cool_key", "default_value" => "No Vault Secret Fo
 ```
 
 Secrets will then be looked up with the following paths:
-* http://vault.foobar.com:8200/some_secret/foo.example.com/cool_key (for v1)
-* http://vault.foobar.com:8200/some_secret/foo.example.com/data/cool_key (for v2)
-* http://vault.foobar.com:8200/some_secret/common/cool_key (for v1)
-* http://vault.foobar.com:8200/some_secret/common/data/cool_key (for v2)
-* http://vault.foobar.com:8200/another_secret/foo.example.com/cool_key (for v1)
-* http://vault.foobar.com:8200/another_secret/foo.example.com/data/cool_key (for v2)
-* http://vault.foobar.com:8200/another_secret/common/cool_key (for v1)
-* http://vault.foobar.com:8200/another_secret/common/data/cool_key (for v2)
+
+- http://vault.foobar.com:8200/some_secret/foo.example.com/cool_key (for v1)
+- http://vault.foobar.com:8200/some_secret/foo.example.com/data/cool_key (for v2)
+- http://vault.foobar.com:8200/some_secret/data/foo.example.com/cool_key (for v2)
+- http://vault.foobar.com:8200/some_secret/common/cool_key (for v1)
+- http://vault.foobar.com:8200/some_secret/common/data/cool_key (for v2)
+- http://vault.foobar.com:8200/some_secret/data/common/cool_key (for v2)
+
+#### Less lookups
+
+You can use `v1_lookup` and `v2_guess_mount` to minimize misses in above lookups.
+
+Changing above configuration to
+
+```yaml
+v2_guess_mount: false
+v1_lookup: false
+mounts:
+  some_secret/data:
+    - %{::trusted.certname}
+    - common
+```
+
+would result in following lookups:
+
+- http://vault.foobar.com:8200/some_secret/data/foo.example.com/cool_key (for v2)
+- http://vault.foobar.com:8200/some_secret/data/common/cool_key (for v2)
+
+#### Multiple keys in trusted certname
+
+Often you want to whitelist multiple paths for each host (e.g. due to host having multiple roles). In this case simply add keys delimited with comma to trusted field. For example:
+
+```yaml
+mounts:
+  secret:
+    - "%{trusted.extensions.pp_role}"
+```
+
+and host configured with
+
+```yaml
+---
+extension_requests:
+  pp_role: api,ssl
+```
+
+would result in lookups in:
+
+- http://vault.foobar.com:8200/secret/api/cool_key (for v1)
+- http://vault.foobar.com:8200/secret/api/data/cool_key (for v2)
+- http://vault.foobar.com:8200/secret/data/api/cool_key (for v2)
+- http://vault.foobar.com:8200/secret/ssl/cool_key (for v1)
+- http://vault.foobar.com:8200/secret/ssl/data/cool_key (for v2)
+- http://vault.foobar.com:8200/secret/data/ssl/cool_key (for v2)
+
+#### More verbose paths in Hiera
+
+Often implicit path extension makes it hard to understand which exact paths are used for given host - as you need to inspect both Hiera and trusted field for each host.
+
+With above configuration and lookup `$cool_key = lookup({"name" => "cool_key"})` you cannot be sure whether `api/cool_key` or `ssl/cool_key` will be used (whichever happens to be first in lookup list).
+
+To alleviate this problem you can use full paths in Hiera, provided `v2_guess_mount: false` configuration is active. For example with:
+
+```yaml
+v2_guess_mount: false
+v1_lookup: false
+mounts:
+  secret/data:
+    - "%{trusted.extensions.pp_role}"
+```
+
+You can use `$cool_key = lookup({"name" => "ssl/cool_key"})` to ensure `http://vault.foobar.com:8200/secret/data/ssl/cool_key` will be used.
+
+And make yourself a favor and avoid `lookup` directly ;) Use
+
+```yaml
+profile::ssl_role::key: "%{alias('vault_storage::ssl/params.key')}"
+```
+
+to inject value from `key` inside `http://vault.foobar.com:8200/secret/data/ssl/params`.
 
 ### Author
 
-* Original - David Alden <dave@alden.name>
-* Transfered and maintained by Peter Souter
+- Original - David Alden <dave@alden.name>
+- Transfered and maintained by Peter Souter

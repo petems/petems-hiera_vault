@@ -88,6 +88,14 @@ describe FakeFunction do
               to output(/token set to IGNORE-VAULT - Quitting early/).to_stdout
           end
 
+          it 'should exit early if token is set to IGNORE-VAULT in a file' do
+            vault_token_tmpfile = Tempfile.open('w')
+            vault_token_tmpfile.puts('IGNORE-VAULT')
+            vault_token_tmpfile.close
+            expect { function.lookup_key('test_key', vault_options.merge({'token' => vault_token_tmpfile.path}), context) }.
+              to output(/token set to IGNORE-VAULT - Quitting early/).to_stdout
+          end
+
           it 'should allow the configuring of a vault token from a file' do
             vault_token_tmpfile = Tempfile.open('w')
             vault_token_tmpfile.puts(RSpec::VaultServer.token)
