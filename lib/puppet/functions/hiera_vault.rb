@@ -225,6 +225,7 @@ Puppet::Functions.create_function(:hiera_vault) do
       end
 
       answer = nil
+      strict_mode = options.key?('strict_mode') and options['strict_mode']
 
       if options['mounts']['generic']
         raise ArgumentError, "[hiera-vault] generic is no longer valid - change to kv"
@@ -261,9 +262,12 @@ Puppet::Functions.create_function(:hiera_vault) do
               next if response.nil?
               secret = version == :v1 ? response.data : response.data[:data]
             rescue Vault::HTTPConnectionError
-              context.explain { "[hiera-vault] Could not connect to read secret: #{secretpath}" }
+              msg = "[hiera-vault] Could not connect to read secret: #{secretpath}"
+              raise Puppet::DataBinding::LookupError, msg
             rescue Vault::HTTPError => e
-              context.explain { "[hiera-vault] Could not read secret #{secretpath}: #{e.errors.join("\n").rstrip}" }
+              msg = "[hiera-vault] Could not read secret #{secretpath}: #{e.errors.join("\n").rstrip}"
+              raise Puppet::DataBinding::LookupError, msg if strict_mode or e.code != 403
+              context.explain { msg }
             end
           end
 
@@ -302,6 +306,8 @@ Puppet::Functions.create_function(:hiera_vault) do
 
         break unless answer.nil?
       end
+
+      raise Puppet::DataBinding::LookupError, "[hiera-vault] Could not find secret #{key}" if answer.nil? and strict_mode
 
       answer = context.not_found if answer.nil?
       $hiera_vault_shutdown.call

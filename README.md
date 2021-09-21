@@ -153,11 +153,13 @@ strip_from_keys:
   - "vault:"
 ```
 
-`default_field:`: The default field within data to return. If not present, the lookup will be the full contents of the secret data.
+`default_field`: The default field within data to return. If not present, the lookup will be the full contents of the secret data.
 
-`mounts:`: The list of mounts you want to do lookups against. This is treated as the backend hiearchy for lookup. It is recomended you use [Trusted Facts](https://puppet.com/docs/puppet/5.3/lang_facts_and_builtin_vars.html#trusted-facts) within the hierachy to ensure lookups are restricted to the correct hierachy points. See [Mounts](#mounts).
+`mounts`: The list of mounts you want to do lookups against. This is treated as the backend hiearchy for lookup. It is recomended you use [Trusted Facts](https://puppet.com/docs/puppet/5.3/lang_facts_and_builtin_vars.html#trusted-facts) within the hierachy to ensure lookups are restricted to the correct hierachy points. See [Mounts](#mounts).
 
-`:ssl_verify`: Specify whether to verify SSL certificates (default: true)
+`ssl_verify`: Specify whether to verify SSL certificates (default: true)
+
+`strict_mode`: Whether to fail loudly when we get a 403 response or no result from Vault. Otherwise we get an empty result, which means passwords could become empty strings.
 
 `v1_lookup`: whether to lookup within kv v1 hierarchy (default `true`) - disable if you only use kv v2 :) See [Less lookups](#less-lookups).
 
