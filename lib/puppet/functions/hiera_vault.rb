@@ -1,3 +1,80 @@
+# Cache will keep track of all the results gotten from the Vault server.
+# To avoid leaking secrets both the key looked for and the options are used as
+# the key for the cache so that using the same key with different options will
+# not risk leaking a secret.
+# To keep things fast and not have the pruning method take longer as the number
+# of entries grow we create a Hash for each value of cache_for and keep entries
+# in this hash ordered from the oldest one to the most recent. When looking for
+# entries to evict we iterate over each Hash in order and stop when we find the
+# first entry that we must keep: because all the subsequent entries will be
+# younger there is no need to continue as we will need to keep them all. Doing
+# this make time spent pruning the cache proportional to number of entries that
+# actually need to be evicted, and not to the total number of entries in the
+# cache.
+# We avoid keeping secrets in memory for longer than necessary by calling prune
+# before each operation of the cache, we always evict secret from memory as soon
+# as we can.
+# Note that we don't need synchronization primitives in Cache because we always
+# hold hiera_vault_mutex when accessing the cache.
+class Cache
+  CacheKey = Struct.new(:key, :options)
+  CacheValue = Struct.new(:value, :until)
+
+  def initialize
+    @caches = Hash.new {|hash, key| hash[key] = {} }
+  end
+
+  def set(key, value, options)
+    prune
+
+    cache_for = options['cache_for']
+
+    # Early exit if the cache is deactivated
+    return nil if cache_for.nil?
+
+    k = CacheKey.new(key, options)
+    cache = @caches[cache_for]
+
+    # We first delete the key from the cache so it will always be ordered from
+    # oldest entries to most recent
+    cache.delete(k)
+
+    cache[k] = CacheValue.new(value, Time.now + cache_for)
+  end
+
+  def get(key, options)
+    prune
+
+    cache_for = options['cache_for']
+
+    # Early exit if the cache is deactivated
+    return nil if cache_for.nil?
+
+    k = CacheKey.new(key, options)
+    cache = @caches[cache_for]
+
+    # We don't need to check whether the value has expired because it would
+    # have been removed during prune
+    return cache[k]
+  end
+
+  # Removes all the expired entries from the cache
+  def prune
+    @caches.each_value do |cache|
+      cache.each do |key, value|
+        # Because the entries in each cache are ordered we can stop as soon as
+        # we find one that we need to keep, all the following ones will be
+        # younger and need to be kept too
+        if value.until >= Time.now
+          break
+        end
+
+        cache.delete(key)
+      end
+    end
+  end
+end
+
 Puppet::Functions.create_function(:hiera_vault) do
 
   begin
@@ -27,6 +104,8 @@ Puppet::Functions.create_function(:hiera_vault) do
     param 'Hash', :options
     param 'Puppet::LookupContext', :context
   end
+
+  $cache = Cache.new
 
   $hiera_vault_mutex = Mutex.new
   $hiera_vault_client = Vault::Client.new
@@ -109,7 +188,14 @@ Puppet::Functions.create_function(:hiera_vault) do
       raise ArgumentError, "[hiera-vault] invalid value for default_field_behavior: '#{options['default_field_behavior']}', should be one of 'ignore','only'"
     end
 
+    if (! options['cache_for'].nil?) &&  (! options['cache_for'].is_a? Numeric)
+      raise ArgumentError, "[hiera-vault] invalid value for cache_for: '#{options['cache_for']}', should be a number or nil"
+    end
+
     $hiera_vault_mutex.synchronize do
+      cached_value = $cache.get(key, options)
+      return cached_value.value if ! cached_value.nil?
+
       # If our Vault client has got cleaned up by a previous shutdown call, reinstate it
       if $hiera_vault_client.nil?
         $hiera_vault_client = Vault::Client.new
@@ -187,7 +273,10 @@ Puppet::Functions.create_function(:hiera_vault) do
           if (options['default_field'] and ( ['ignore', nil].include?(options['default_field_behavior']) ||
           (secret.has_key?(options['default_field'].to_sym) && secret.length == 1) ) )
 
-          return nil if ! secret.has_key?(options['default_field'].to_sym)
+          if ! secret.has_key?(options['default_field'].to_sym)
+            $cache.set(key, nil, options)
+            return nil
+          end
 
           new_answer = secret[options['default_field'].to_sym]
 
@@ -216,6 +305,8 @@ Puppet::Functions.create_function(:hiera_vault) do
 
       answer = context.not_found if answer.nil?
       $hiera_vault_shutdown.call
+
+      $cache.set(key, answer, options)
       return answer
     end
   end
