@@ -225,7 +225,7 @@ Puppet::Functions.create_function(:hiera_vault) do
       end
 
       answer = nil
-      strict_mode = options.key?('strict_mode') and options['strict_mode']
+      strict_mode = (options.key?('strict_mode') and options['strict_mode'])
 
       if options['mounts']['generic']
         raise ArgumentError, "[hiera-vault] generic is no longer valid - change to kv"
