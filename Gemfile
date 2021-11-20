@@ -7,6 +7,7 @@ group :test do
     gem 'puppet', ENV['PUPPET_VERSION'] || '~> 6'
   end
 
+  gem 'json', ">= 2.3.0"
   gem 'json_pure'
   gem 'safe_yaml'
 
