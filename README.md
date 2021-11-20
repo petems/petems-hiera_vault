@@ -136,6 +136,8 @@ The following are optional configuration parameters supported in the `options` h
 
 `token`: The token to authenticate with Vault, also read as `ENV["VAULT_TOKEN"]` or a full path to the file with the token (eg. `/etc/vault_token.txt`). When bootstrapping, you can set this token as `IGNORE-VAULT` and the backend will be stubbed, which can be useful when bootstrapping.
 
+`cache_for`: How long to cache a given key in seconds. If not present the response will never be cached.
+
 `confine_to_keys:`: Only use this backend if the key matches one of the regexes in the array, to avoid constantly reaching out to Vault for every parameter lookup
 
 ```yaml
@@ -218,6 +220,8 @@ Secrets will then be looked up with the following paths:
 - http://vault.foobar.com:8200/some_secret/data/common/cool_key (for v2)
 
 #### Less lookups
+
+It is possible to use `cache_for` to indicate how long to cache a given key to lessen the number of requests sent to Vault.
 
 You can use `v1_lookup` and `v2_guess_mount` to minimize misses in above lookups.
 
