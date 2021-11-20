@@ -45,7 +45,9 @@ SimpleCov.start do
 end
 
 RSpec.configure do |config|
-  config.expect_with :rspec
+  config.expect_with :rspec do |c|
+    c.max_formatted_output_length = nil
+  end
   # Enable rpec-mocks
   config.mock_with :rspec
 

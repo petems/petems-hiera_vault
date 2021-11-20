@@ -8,7 +8,7 @@ group :test do
   end
 
   gem 'json', ">= 2.3.0"
-  gem 'json_pure'
+  gem 'json_pure', ">= 2.3.1"
   gem 'safe_yaml'
 
   gem 'rake'
