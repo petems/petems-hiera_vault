@@ -58,16 +58,29 @@ To run a specific spec test set the `SPEC` variable:
 
     bundle exec rake spec SPEC=spec/foo_spec.rb:123
 
+The tests require a version of `vault` to be avaliable on the command-line.
 
+```
+#!/bin/bash
+VAULT_VERSION=1.3.0
+cd /tmp/
+curl -sLo vault.zip https://releases.hashicorp.com/vault/${VAULT_VERSION}/vault_${VAULT_VERSION}_linux_amd64.zip
+unzip vault.zip
+mkdir -p /usr/local/bin
+mv vault /usr/local/bin
+export PATH="/usr/local/bin:$PATH"
+```
 
-## Integration tests
+### Docker enviroment for tests
 
-The unit tests just check the code runs, not that it does exactly what
-we want on a real machine. For that we're using
-[beaker](https://github.com/puppetlabs/beaker).
+If you want a quick Docker lab to run the tests on, we have a `docker-compose` environment setup:
 
-This fires up a simple Docker cluster and runs a series of
-simple tests against it after applying the module. You can run this
-with:
+```
+docker-compose up --build
+```
 
-    bundle exec rake acceptance
+If you have any errors, you can create and then attach to the container with run:
+
+```
+docker-compose run hiera_vault /bin/bash
+```

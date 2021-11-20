@@ -55,5 +55,3 @@ RSpec.configure do |config|
     config.warnings = false
   end
 end
-
-require 'puppetlabs_spec_helper/module_spec_helper'
