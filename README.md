@@ -159,6 +159,8 @@ strip_from_keys:
 
 `:ssl_verify`: Specify whether to verify SSL certificates (default: true)
 
+`:strict_mode`: When enabled, the lookup function fail in case of http errors when looking up a secret.
+
 `v1_lookup`: whether to lookup within kv v1 hierarchy (default `true`) - disable if you only use kv v2 :) See [Less lookups](#less-lookups).
 
 `v2_guess_mount`: whether to try to guess mount for KV v2 (default `true`) - add `data` after your mount and disable to minimize amount of misses. See [Less lookups](#less-lookups).
