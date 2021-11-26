@@ -1,0 +1,19 @@
+---
+version: 5
+
+hierarchy:
+  - name: "Hiera-vault lookup"
+    lookup_key: hiera_vault
+    options:
+      confine_to_keys:
+        - "^vault_.*"
+        - "^.*_password$"
+        - "^password.*"
+      ssl_verify: false
+      address: http://vault:8200
+      token: ROOT
+      default_field: value
+      mounts:
+        vault_kv:
+          - "%{::trusted.certname}"
+          - common
