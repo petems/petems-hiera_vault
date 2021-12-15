@@ -1,0 +1,61 @@
+---
+version: "2.1"
+services:
+  puppet:
+    hostname: puppet
+    build:
+      context: ./
+      dockerfile: Dockerfile.puppetserver
+    environment:
+      - PUPPERWARE_ANALYTICS_ENABLED=false
+      - PUPPETSERVER_HOSTNAME=puppet
+      - DNS_ALT_NAMES=puppet.local
+      - AUTOSIGN=true
+      - USE_PUPPETDB=false
+    volumes:
+      - ./puppetserver-ssl:/etc/puppetlabs/puppet/ssl
+      - ./puppetserver-code:/etc/puppetlabs/code/
+      - ./puppetserver-config:/etc/puppetlabs/puppet/
+      - ./puppetserver-data:/opt/puppetlabs/server/data/puppetserver/
+      - .././:/etc/puppetlabs/code/modules/hiera_vault/
+    ports:
+      - 8140:8140
+    restart: unless-stopped
+  vault:
+    hostname: vault
+    image: vault:latest
+    ports:
+      - "8200:8200"
+    environment:
+      VAULT_ADDR: "http://0.0.0.0:8200"
+      VAULT_DEV_ROOT_TOKEN_ID: "ROOT"
+    cap_add:
+      - IPC_LOCK
+    depends_on:
+      - puppet
+  vault_enabler:
+    image: vault:1.6.2
+    container_name: vault_enabler
+    command: ["vault", "secrets", "enable", "-version=2", "-path=some_secret", "kv"]
+    environment:
+      - VAULT_ADDR=http://vault:8200
+      - VAULT_TOKEN=ROOT
+    depends_on:
+      - vault
+  vault_writer_one:
+    image: vault:1.6.2
+    container_name: vault_writer_one
+    command: ["vault", "kv", "put", "some_secret/common/vault_notify", "value='Hello World'"]
+    environment:
+      - VAULT_ADDR=http://vault:8200
+      - VAULT_TOKEN=ROOT
+    depends_on:
+      - vault_enabler
+  agent1:
+    hostname: agent1
+    build:
+      context: ./
+      dockerfile: Dockerfile.ubuntu_agent
+    tty: true
+    depends_on:
+      - puppet 
