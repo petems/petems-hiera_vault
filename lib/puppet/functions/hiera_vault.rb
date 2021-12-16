@@ -77,6 +77,8 @@ end
 
 Puppet::Functions.create_function(:hiera_vault) do
 
+  require_relative 'special_auth'
+
   begin
     require 'json'
   rescue LoadError => e
@@ -161,8 +163,8 @@ Puppet::Functions.create_function(:hiera_vault) do
       return context.not_found
     end
 
-    if vault_token(options).nil?
-      raise ArgumentError, '[hiera-vault] no token set in options and no token in VAULT_TOKEN'
+    if vault_token(options).nil? && !options.key?("authentication")
+      raise ArgumentError, '[hiera-vault] no token set in options, no token in VAULT_TOKEN and no special authentication configured'
     end
 
     result = vault_get(key, options, context)
@@ -205,12 +207,19 @@ Puppet::Functions.create_function(:hiera_vault) do
       begin
         $hiera_vault_client.configure do |config|
           config.address = options['address'] unless options['address'].nil?
-          config.token = vault_token(options)
           config.ssl_pem_file = options['ssl_pem_file'] unless options['ssl_pem_file'].nil?
           config.ssl_verify = options['ssl_verify'] unless options['ssl_verify'].nil?
           config.ssl_ca_cert = options['ssl_ca_cert'] if config.respond_to? :ssl_ca_cert
           config.ssl_ca_path = options['ssl_ca_path'] if config.respond_to? :ssl_ca_path
           config.ssl_ciphers = options['ssl_ciphers'] if config.respond_to? :ssl_ciphers
+
+          if options.key?("authentication")
+            context.explain { "[hiera-vault] Using #{options['authentication']['type']} authentication" }
+            authenticate(options['authentication'], $hiera_vault_client, context)
+          else
+            context.explain { "[hiera-vault] Using token authentication" }
+            config.token = vault_token(options)
+          end
         end
 
         if $hiera_vault_client.sys.seal_status.sealed?
