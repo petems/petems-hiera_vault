@@ -34,3 +34,7 @@ group :development do
   gem 'pry'
   gem 'rb-readline'
 end
+
+group :test do 
+  gem 'ddtrace', ">=0.51.0"
+end

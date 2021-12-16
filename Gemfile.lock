@@ -40,6 +40,10 @@ GEM
       fiber-local
     cri (2.7.1)
       colored (~> 1.2)
+    ddtrace (0.54.1)
+      debase-ruby_core_source (= 0.10.12)
+      msgpack
+    debase-ruby_core_source (0.10.12)
     debouncer (0.2.2)
     deep_merge (1.2.1)
     diff-lcs (1.4.4)
@@ -112,6 +116,7 @@ GEM
     minitar (0.9)
     minitest (5.14.4)
     mocha (1.13.0)
+    msgpack (1.4.2)
     multi_json (1.15.0)
     multipart-post (2.1.1)
     netrc (0.11.0)
@@ -244,6 +249,7 @@ PLATFORMS
 
 DEPENDENCIES
   activesupport (< 5)
+  ddtrace (>= 0.51.0)
   debouncer
   github_changelog_generator
   json (>= 2.3.0)

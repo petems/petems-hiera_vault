@@ -5,6 +5,8 @@ require 'rspec-puppet'
 require 'simplecov'
 require 'simplecov-console'
 
+require 'datadog/ci'
+
 class FakeFunction
   def self.dispatch(name, &block); end
 end
@@ -54,4 +56,10 @@ RSpec.configure do |config|
   begin
     config.warnings = false
   end
+end
+
+Datadog.configure do |c|
+  c.ci_mode.enabled = true
+  c.service = 'petems-hiera_vault'
+  c.use :rspec
 end
