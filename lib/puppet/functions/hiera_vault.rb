@@ -340,7 +340,7 @@ Puppet::Functions.create_function(:hiera_vault) do
       path = context.interpolate(path)
       # TODO: Unify usage of '/' - File.join seems to be a mistake, since it won't work on Windows
       # secret/puppet/scope1,scope2 => [[secret], [puppet], [scope1, scope2]]
-      segments = path.split('/').map { |segment| segment.split(',') }
+      segments = path.split(/(?=\/)/).map { |segment| segment.split(',') }
       allowed_paths += build_paths(segments) unless segments.empty?
     end
     allowed_paths

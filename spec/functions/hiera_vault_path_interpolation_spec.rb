@@ -37,7 +37,8 @@ describe FakeFunction do
       'mounts' => {
         VAULT_PATH + "/data" => [
           'common',
-          'rproxy,api'
+          'rproxy,api',
+          '/'
         ]
       }
     }
@@ -59,6 +60,7 @@ describe FakeFunction do
           vault_test_client.kv(VAULT_PATH).write("rproxy/ssl", { value: 'ssl'} )
           vault_test_client.kv(VAULT_PATH).write("api/oauth", { value: 'oauth'} )
           vault_test_client.kv(VAULT_PATH).write("api", { value: 'api_specific'}  )
+          vault_test_client.kv(VAULT_PATH).write("/root", { value: 'root_specific'} )
         end
 
         context 'reading secrets' do
@@ -80,6 +82,10 @@ describe FakeFunction do
           it 'returns key from second option with full path to node' do
             expect(function.lookup_key('api/oauth', vault_options, context))
               .to include('value' => 'oauth')
+          end
+          it 'returns key from root path' do
+            expect(function.lookup_key('/root', vault_options, context))
+              .to include('value' => 'root_specific')
           end
         end
       end
