@@ -64,12 +64,12 @@ describe FakeFunction do
 
         it 'should error when passing invalid regexes' do
           expect { function.lookup_key('test_key', { 'confine_to_keys' => ['['] }, context) }
-            .to raise_error(Puppet::DataBinding::LookupError, '[hiera-vault] creating regexp failed with: premature end of char-class: /[/')
+            .to raise_error(Puppet::DataBinding::LookupError, '[hiera-vault] creating regexp for confine_to_keys failed with: premature end of char-class: /[/')
         end
 
         it 'should error when passing invalid regexes' do
           expect { function.lookup_key('test_key', { 'confine_to_keys' => ['['] }, context) }
-            .to raise_error(Puppet::DataBinding::LookupError, '[hiera-vault] creating regexp failed with: premature end of char-class: /[/')
+            .to raise_error(Puppet::DataBinding::LookupError, '[hiera-vault] creating regexp for confine_to_keys failed with: premature end of char-class: /[/')
         end
 
         it 'should error when strip_from_keys isnst an array' do

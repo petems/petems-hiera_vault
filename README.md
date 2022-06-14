@@ -111,6 +111,8 @@ hierarchy:
         - "^vault_.*"
         - "^.*_password$"
         - "^password.*"
+      convert_paths_to_resources:
+        - ".*\/resources"
       ssl_verify: false
       address: https://vault.foobar.com:8200
       token: <insert-your-vault-token-here>
@@ -164,6 +166,13 @@ strip_from_keys:
 `v1_lookup`: whether to lookup within kv v1 hierarchy (default `true`) - disable if you only use kv v2 :) See [Less lookups](#less-lookups).
 
 `v2_guess_mount`: whether to try to guess mount for KV v2 (default `true`) - add `data` after your mount and disable to minimize amount of misses. See [Less lookups](#less-lookups).
+
+```yaml
+convert_paths_to_resources:
+  - '.*\/resources'
+```
+
+For the specified Vault paths, the backend will convert vault directories to Puppet resources (e.g. Hashes). This is useful when you want to pass complete directories from Vault to Puppet to be used with for example `create_resources`. values fetched through this path will not be cached.
 
 ### Debugging
 
