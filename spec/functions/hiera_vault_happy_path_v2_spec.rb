@@ -76,6 +76,12 @@ describe FakeFunction do
             ctx
           end
 
+          it 'should allow configuring vault address from ENV VAULT_ADDR' do
+            ENV['VAULT_ADDR'] = RSpec::VaultServer.address
+            expect { function.lookup_key('test_key', vault_options.merge({'address' => nil}), context) }.
+              to output(/Read secret: test_key/).to_stdout
+          end
+
           it 'should exit early if ENV VAULT_TOKEN is set to IGNORE-VAULT' do
             ENV['VAULT_TOKEN'] = 'IGNORE-VAULT'
             expect(context).to receive(:not_found)
