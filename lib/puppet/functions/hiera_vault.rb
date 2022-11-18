@@ -116,6 +116,15 @@ Puppet::Functions.create_function(:hiera_vault) do
     end
   }
 
+  def vault_addr(options)
+    addr = nil
+
+    addr = ENV['VAULT_ADDR'] unless ENV['VAULT_ADDR'].nil?
+    addr ||= options['address'] unless options['address'].nil?
+
+    addr
+  end
+
   def vault_token(options)
     token = nil
 
@@ -203,8 +212,10 @@ Puppet::Functions.create_function(:hiera_vault) do
 
 
       begin
+        context.explain { "[hiera-vault] Vault address configured to #{vault_addr(options)}" }
+
         $hiera_vault_client.configure do |config|
-          config.address = options['address'] unless options['address'].nil?
+          config.address = vault_addr(options)
           config.token = vault_token(options)
           config.ssl_pem_file = options['ssl_pem_file'] unless options['ssl_pem_file'].nil?
           config.ssl_verify = options['ssl_verify'] unless options['ssl_verify'].nil?
